@@ -1,0 +1,71 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"strings"
+)
+
+func main() {
+	if len(os.Args) < 2 {
+		printUsage()
+		os.Exit(1)
+	}
+
+	cmd := os.Args[1]
+
+	switch cmd {
+	case "run":
+		cmdRun(os.Args[2:])
+	case "login":
+		cmdLogin(os.Args[2:])
+	case "capture":
+		cmdCapture(os.Args[2:])
+	case "projects":
+		cmdProjects(os.Args[2:])
+	case "status":
+		cmdStatus(os.Args[2:])
+	case "token":
+		cmdToken(os.Args[2:])
+	case "logout":
+		cmdLogout(os.Args[2:])
+	case "help", "--help", "-h":
+		printUsage()
+	case "version", "--version", "-v":
+		fmt.Printf("qamax-agent v%s\n", Version)
+	default:
+		// Backward compat: if first arg starts with "-", treat as `run` with all args
+		// e.g. qamax-agent --cloud-url URL → qamax-agent run --cloud-url URL
+		if strings.HasPrefix(cmd, "-") {
+			cmdRun(os.Args[1:])
+		} else {
+			fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", cmd)
+			printUsage()
+			os.Exit(1)
+		}
+	}
+}
+
+func printUsage() {
+	fmt.Printf(`qamax-agent v%s — QualityMax Local Agent CLI
+
+Usage:
+  qamax-agent <command> [flags]
+
+Commands:
+  run        Start the agent daemon (poll for test assignments)
+  login      Authenticate with QualityMax via browser OAuth
+  capture    Launch Chrome, capture cookies, upload as auth data
+  projects   List available projects
+  status     Show current auth and agent status
+  token      Print the saved OAuth token to stdout
+  logout     Remove saved credentials
+
+Flags:
+  --help     Show this help message
+  --version  Show version
+
+Backward compatibility:
+  qamax-agent --cloud-url URL   (equivalent to: qamax-agent run --cloud-url URL)
+`, Version)
+}

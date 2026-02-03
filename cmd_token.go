@@ -1,0 +1,20 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"os"
+)
+
+func cmdToken(args []string) {
+	fs := flag.NewFlagSet("token", flag.ExitOnError)
+	fs.Parse(args)
+
+	cfg, err := LoadConfig()
+	if err != nil || cfg.Token == "" {
+		fmt.Fprintln(os.Stderr, "Error: not logged in. Run `qamax-agent login` first.")
+		os.Exit(1)
+	}
+
+	fmt.Print(cfg.Token)
+}
