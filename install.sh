@@ -1,7 +1,10 @@
 #!/bin/bash
 # QualityMax Local Agent Installer for macOS/Linux
+# Downloads the latest release from GitHub
 
 set -e
+
+REPO="Quality-Max/qamax-local-agent"
 
 echo "QualityMax Local Agent Installer"
 echo "================================"
@@ -25,7 +28,8 @@ case "$OS" in
     darwin|linux) ;;
     *)
         echo "Error: Unsupported OS: $OS"
-        echo "For Windows, download the binary manually."
+        echo "For Windows, download the binary manually from:"
+        echo "  https://github.com/$REPO/releases/latest"
         exit 1
         ;;
 esac
@@ -44,22 +48,36 @@ mkdir -p "$INSTALL_DIR"
 mkdir -p "$CONFIG_DIR"
 chmod 700 "$CONFIG_DIR"
 
-# Copy binary
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BINARY_SRC="$SCRIPT_DIR/go/build/$BINARY_NAME"
+# Determine version to install
+if [ -n "$QAMAX_VERSION" ]; then
+    VERSION="$QAMAX_VERSION"
+    DOWNLOAD_URL="https://github.com/$REPO/releases/download/${VERSION}/${BINARY_NAME}"
+    echo "Installing version: $VERSION"
+else
+    DOWNLOAD_URL="https://github.com/$REPO/releases/latest/download/${BINARY_NAME}"
+    echo "Installing latest version..."
+fi
 
-if [ ! -f "$BINARY_SRC" ]; then
-    # Try building from source
-    if command -v go &> /dev/null; then
-        echo "Pre-built binary not found. Building from source..."
-        (cd "$SCRIPT_DIR/go" && go build -ldflags="-s -w" -o "$INSTALL_DIR/qamax-agent" .)
-    else
-        echo "Error: Pre-built binary not found at $BINARY_SRC"
-        echo "Either build with 'make build-all' in local-agent/go/ or install Go to build from source."
+# Download binary
+echo "Downloading $BINARY_NAME..."
+if command -v curl &> /dev/null; then
+    HTTP_CODE=$(curl -sL -w "%{http_code}" -o "$INSTALL_DIR/qamax-agent" "$DOWNLOAD_URL")
+    if [ "$HTTP_CODE" -ne 200 ]; then
+        rm -f "$INSTALL_DIR/qamax-agent"
+        echo "Error: Download failed (HTTP $HTTP_CODE)"
+        echo "Check available releases at: https://github.com/$REPO/releases"
+        exit 1
+    fi
+elif command -v wget &> /dev/null; then
+    if ! wget -q -O "$INSTALL_DIR/qamax-agent" "$DOWNLOAD_URL"; then
+        rm -f "$INSTALL_DIR/qamax-agent"
+        echo "Error: Download failed"
+        echo "Check available releases at: https://github.com/$REPO/releases"
         exit 1
     fi
 else
-    cp "$BINARY_SRC" "$INSTALL_DIR/qamax-agent"
+    echo "Error: curl or wget is required"
+    exit 1
 fi
 
 chmod +x "$INSTALL_DIR/qamax-agent"
