@@ -11,33 +11,41 @@ Single binary, no runtime dependencies (Node.js/npm required only for test execu
 
 ## Install
 
-### Download binary
+### One-liner (recommended)
 
-Download the latest release for your platform from [Releases](https://github.com/Quality-Max/qamax-local-agent/releases):
+```bash
+curl -fsSL https://raw.githubusercontent.com/Quality-Max/qamax-local-agent/main/install.sh | bash
+```
+
+This detects your OS and architecture, downloads the correct binary from GitHub Releases, and installs it to `~/.qamax-agent/`.
+
+To install a specific version:
+
+```bash
+QAMAX_VERSION=v2.0.1 curl -fsSL https://raw.githubusercontent.com/Quality-Max/qamax-local-agent/main/install.sh | bash
+```
+
+### Download binary manually
+
+Download the latest release for your platform from [Releases](https://github.com/Quality-Max/qamax-local-agent/releases/latest):
 
 ```bash
 # macOS Apple Silicon
-curl -fsSL -o qamax-agent https://github.com/Quality-Max/qamax-local-agent/releases/download/v2.0.0/qamax-agent-darwin-arm64
+curl -fsSL -o qamax-agent https://github.com/Quality-Max/qamax-local-agent/releases/latest/download/qamax-agent-darwin-arm64
 
 # macOS Intel
-curl -fsSL -o qamax-agent https://github.com/Quality-Max/qamax-local-agent/releases/download/v2.0.0/qamax-agent-darwin-amd64
+curl -fsSL -o qamax-agent https://github.com/Quality-Max/qamax-local-agent/releases/latest/download/qamax-agent-darwin-amd64
 
 # Linux x86_64
-curl -fsSL -o qamax-agent https://github.com/Quality-Max/qamax-local-agent/releases/download/v2.0.0/qamax-agent-linux-amd64
+curl -fsSL -o qamax-agent https://github.com/Quality-Max/qamax-local-agent/releases/latest/download/qamax-agent-linux-amd64
 
 chmod +x qamax-agent
 sudo mv qamax-agent /usr/local/bin/
 ```
 
-### Install script
-
-```bash
-./install.sh
-```
-
 ### Build from source
 
-Requires Go 1.22+:
+Requires Go 1.23+:
 
 ```bash
 git clone https://github.com/Quality-Max/qamax-local-agent.git
