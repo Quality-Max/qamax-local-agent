@@ -1,8 +1,9 @@
 # qamax-agent
 
-Cross-platform CLI for running [QualityMax](https://qamax.co) Playwright tests locally.
+Cross-platform CLI for running [QualityMax](https://qualitymax.io) Playwright tests locally.
 
 - **Run** as a daemon to poll and execute Playwright tests from QualityMax cloud
+- **Crawl** websites behind firewalls, VPNs, and localhost with AI-powered discovery
 - **Capture** browser cookies for authenticated test scenarios
 - **Authenticate** via browser-based OAuth login
 - **Manage** projects and credentials locally
@@ -22,7 +23,7 @@ This detects your OS and architecture, downloads the correct binary from GitHub 
 To install a specific version:
 
 ```bash
-QAMAX_VERSION=v2.0.1 curl -fsSL https://raw.githubusercontent.com/Quality-Max/qamax-local-agent/main/install.sh | bash
+QAMAX_VERSION=v3.0.0 curl -fsSL https://raw.githubusercontent.com/Quality-Max/qamax-local-agent/main/install.sh | bash
 ```
 
 ### Download binary manually
@@ -62,9 +63,9 @@ make build-all
 ## Quick Start
 
 ```bash
-qamax-agent login                                          # Authenticate via browser
-qamax-agent projects                                       # List your projects
-qamax-agent run --cloud-url https://app.qamax.co           # Start the agent daemon
+qamax-agent login                                              # Authenticate via browser
+qamax-agent projects                                           # List your projects
+qamax-agent run --cloud-url https://app.qualitymax.io          # Start the agent daemon
 ```
 
 ## Commands
@@ -81,11 +82,11 @@ qamax-agent login --api-url URL          # Custom QualityMax URL
 
 ### `run`
 
-Start the agent daemon to poll for and execute test assignments.
+Start the agent daemon to poll for and execute test assignments and AI crawl discovery sessions.
 
 ```bash
-qamax-agent run --cloud-url https://app.qamax.co
-qamax-agent run --cloud-url https://app.qamax.co --registration-secret SECRET
+qamax-agent run --cloud-url https://app.qualitymax.io
+qamax-agent run --cloud-url https://app.qualitymax.io --registration-secret SECRET
 qamax-agent run --poll-interval 10 --heartbeat-interval 30
 ```
 
@@ -94,7 +95,26 @@ After the first successful registration, credentials are saved. Subsequent runs 
 **Backward compatibility** — the old flag-based invocation still works:
 
 ```bash
-qamax-agent --cloud-url https://app.qamax.co --registration-secret SECRET
+qamax-agent --cloud-url https://app.qualitymax.io --registration-secret SECRET
+```
+
+#### AI Crawl Discovery (v3.0)
+
+When running, the agent automatically polls for **AI crawl discovery sessions** alongside test assignments. When QualityMax assigns a crawl:
+
+1. The agent launches a local Chrome browser (via [chromedp](https://github.com/chromedp/chromedp))
+2. Navigates to the target URL — including sites behind firewalls, VPNs, or localhost
+3. Captures page snapshots (DOM elements, forms, selectors, screenshots)
+4. Sends snapshots to the QualityMax server for LLM-powered navigation decisions
+5. Executes the returned actions (click, fill, select) and repeats
+6. When discovery completes, QualityMax generates Playwright test code from the captured flow
+
+This enables AI-powered test generation for internal applications that the cloud cannot reach.
+
+Set `QAMAX_CRAWL_HEADED=true` to see the browser during crawl sessions (useful for debugging):
+
+```bash
+QAMAX_CRAWL_HEADED=true qamax-agent run --cloud-url https://app.qualitymax.io
 ```
 
 ### `capture`
@@ -148,7 +168,7 @@ Config is stored at `~/.qamax/config.json` (mode `0600`):
 ```json
 {
   "token": "eyJ...",
-  "api_url": "https://app.qamax.co",
+  "api_url": "https://app.qualitymax.io",
   "agent_id": "uuid",
   "api_key": "hex-key",
   "registration_secret": ""
@@ -162,6 +182,12 @@ Config is stored at `~/.qamax/config.json` (mode `0600`):
 | `agent_id` / `api_key` | Agent daemon credentials, saved after first `run` registration |
 | `registration_secret` | Server-side secret for agent registration |
 
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `QAMAX_CRAWL_HEADED` | `false` | Set to `true` to show the browser during AI crawl sessions |
+
 ## Running as a Service
 
 See [INSTALLATION.md](INSTALLATION.md) for macOS LaunchAgent and Linux systemd setup instructions.
@@ -171,7 +197,7 @@ See [INSTALLATION.md](INSTALLATION.md) for macOS LaunchAgent and Linux systemd s
 | Requirement | Used by |
 |-------------|---------|
 | Node.js + npm | `run` (Playwright test execution) |
-| Google Chrome | `capture` (cookie extraction via CDP) |
+| Google Chrome | `capture` (cookie extraction), `run` (AI crawl discovery) |
 
 ## Security
 
@@ -180,6 +206,9 @@ See [INSTALLATION.md](INSTALLATION.md) for macOS LaunchAgent and Linux systemd s
 - Config directory permissions are `0700`
 - HTTP response bodies are size-limited to prevent memory exhaustion
 - Login callback validates request method and token length
+- AI crawl sessions are authenticated via agent API key
+- Crawl browser sessions have a 10-minute timeout
+- HTTP retries use exponential backoff (3 attempts max)
 
 ## License
 

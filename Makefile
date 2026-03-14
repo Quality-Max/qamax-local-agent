@@ -1,5 +1,5 @@
 BINARY_NAME = qamax-agent
-VERSION = 2.0.0
+VERSION = 3.0.0
 BUILD_DIR = build
 
 .PHONY: build test clean build-all

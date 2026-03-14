@@ -30,7 +30,7 @@ The QualityMax Local Agent (`qamax-agent`) is a single binary CLI that:
 
 3. **Start the agent:**
    ```bash
-   qamax-agent run --cloud-url https://app.qamax.co --registration-secret YOUR_SECRET
+   qamax-agent run --cloud-url https://app.qualitymax.io --registration-secret YOUR_SECRET
    ```
 
 ### Building from Source
@@ -68,8 +68,8 @@ Opens your browser to log in. The token is saved to `~/.qamax/config.json`.
 Start the agent daemon to poll for and execute test assignments.
 
 ```bash
-qamax-agent run --cloud-url https://app.qamax.co
-qamax-agent run --cloud-url https://app.qamax.co --registration-secret SECRET
+qamax-agent run --cloud-url https://app.qualitymax.io
+qamax-agent run --cloud-url https://app.qualitymax.io --registration-secret SECRET
 qamax-agent run --poll-interval 10 --heartbeat-interval 30
 ```
 
@@ -77,7 +77,7 @@ After the first successful registration, credentials are saved to config. Subseq
 
 **Backward compatibility:** The old flag-based invocation still works:
 ```bash
-qamax-agent --cloud-url https://app.qamax.co --registration-secret SECRET
+qamax-agent --cloud-url https://app.qualitymax.io --registration-secret SECRET
 ```
 
 ### `qamax-agent capture`
@@ -133,7 +133,7 @@ Config is stored at `~/.qamax/config.json` (mode 0600):
 ```json
 {
   "token": "eyJ...",
-  "api_url": "https://app.qamax.co",
+  "api_url": "https://app.qualitymax.io",
   "agent_id": "uuid",
   "api_key": "hex-key",
   "registration_secret": ""
@@ -162,7 +162,7 @@ Create `~/Library/LaunchAgents/com.qamax.agent.plist`:
         <string>/Users/YOUR_USERNAME/.qamax-agent/qamax-agent</string>
         <string>run</string>
         <string>--cloud-url</string>
-        <string>https://app.qamax.co</string>
+        <string>https://app.qualitymax.io</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -193,7 +193,7 @@ After=network.target
 [Service]
 Type=simple
 User=YOUR_USERNAME
-ExecStart=/home/YOUR_USERNAME/.qamax-agent/qamax-agent run --cloud-url https://app.qamax.co
+ExecStart=/home/YOUR_USERNAME/.qamax-agent/qamax-agent run --cloud-url https://app.qualitymax.io
 Restart=always
 RestartSec=10
 
@@ -220,7 +220,7 @@ sudo systemctl start qamax-agent
 
 - Ensure port 9876 is available (or use `--port` to specify another)
 - Check that the QualityMax app URL is correct
-- Try `qamax-agent login --api-url https://app.qamax.co`
+- Try `qamax-agent login --api-url https://app.qualitymax.io`
 
 ### Capture fails
 
