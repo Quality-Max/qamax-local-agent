@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // These tests run cmd functions that call os.Exit by executing a subprocess.
@@ -488,6 +490,293 @@ func TestMainSubprocess_VShortFlag(t *testing.T) {
 	}
 	if !strings.Contains(string(out), Version) {
 		t.Errorf("expected version in output, got: %s", out)
+	}
+}
+
+// --- cmdCapture subprocess tests ---
+
+func TestCmdCaptureSubprocess_NoURL(t *testing.T) {
+	if os.Getenv("RUN_CMD_TEST") == "capture_nourl" {
+		cmdCapture([]string{"--project-id", "p1", "--name", "n1"})
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=^TestCmdCaptureSubprocess_NoURL$")
+	cmd.Env = append(os.Environ(), "RUN_CMD_TEST=capture_nourl", "HOME="+t.TempDir())
+
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected non-zero exit when URL is missing")
+	}
+	if !strings.Contains(string(out), "URL argument is required") {
+		t.Errorf("expected 'URL argument is required', got: %s", out)
+	}
+}
+
+func TestCmdCaptureSubprocess_NoProjectID(t *testing.T) {
+	if os.Getenv("RUN_CMD_TEST") == "capture_nopid" {
+		cmdCapture([]string{"--name", "n1", "https://example.com"})
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=^TestCmdCaptureSubprocess_NoProjectID$")
+	cmd.Env = append(os.Environ(), "RUN_CMD_TEST=capture_nopid", "HOME="+t.TempDir())
+
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected non-zero exit when project-id is missing")
+	}
+	if !strings.Contains(string(out), "project-id is required") {
+		t.Errorf("expected '--project-id is required', got: %s", out)
+	}
+}
+
+func TestCmdCaptureSubprocess_NoName(t *testing.T) {
+	if os.Getenv("RUN_CMD_TEST") == "capture_noname" {
+		cmdCapture([]string{"--project-id", "p1", "https://example.com"})
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=^TestCmdCaptureSubprocess_NoName$")
+	cmd.Env = append(os.Environ(), "RUN_CMD_TEST=capture_noname", "HOME="+t.TempDir())
+
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected non-zero exit when name is missing")
+	}
+	if !strings.Contains(string(out), "name is required") {
+		t.Errorf("expected '--name is required', got: %s", out)
+	}
+}
+
+func TestCmdCaptureSubprocess_NotLoggedIn(t *testing.T) {
+	if os.Getenv("RUN_CMD_TEST") == "capture_nologin" {
+		cmdCapture([]string{"--project-id", "p1", "--name", "n1", "https://example.com"})
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=^TestCmdCaptureSubprocess_NotLoggedIn$")
+	cmd.Env = append(os.Environ(), "RUN_CMD_TEST=capture_nologin", "HOME="+t.TempDir())
+
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected non-zero exit when not logged in")
+	}
+	if !strings.Contains(string(out), "not logged in") {
+		t.Errorf("expected 'not logged in', got: %s", out)
+	}
+}
+
+func TestCmdCaptureSubprocess_URLViaFlag(t *testing.T) {
+	if os.Getenv("RUN_CMD_TEST") == "capture_urlflag" {
+		cmdCapture([]string{"--project-id", "p1", "--name", "n1", "--url", "https://example.com"})
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=^TestCmdCaptureSubprocess_URLViaFlag$")
+	cmd.Env = append(os.Environ(), "RUN_CMD_TEST=capture_urlflag", "HOME="+t.TempDir())
+
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected non-zero exit when not logged in")
+	}
+	// Should get past URL validation and fail on login check
+	if !strings.Contains(string(out), "not logged in") {
+		t.Errorf("expected 'not logged in', got: %s", out)
+	}
+}
+
+func TestMainSubprocess_Capture(t *testing.T) {
+	if os.Getenv("RUN_CMD_TEST") == "main_capture" {
+		os.Args = []string{"qamax-agent", "capture"}
+		main()
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=^TestMainSubprocess_Capture$")
+	cmd.Env = append(os.Environ(), "RUN_CMD_TEST=main_capture", "HOME="+t.TempDir())
+
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected non-zero exit")
+	}
+	if !strings.Contains(string(out), "URL argument is required") {
+		t.Errorf("expected URL error from capture, got: %s", out)
+	}
+}
+
+// --- cmdLogin tests (non-subprocess, test the token flow directly) ---
+
+func TestCmdLogin_TokenCallback(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	// Find a free port
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("cannot find free port: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	listener.Close()
+
+	// Run cmdLogin in a goroutine with our port
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		cmdLogin([]string{"--port", fmt.Sprintf("%d", port), "--api-url", "https://example.com"})
+	}()
+
+	// Wait for the server to start
+	var connected bool
+	for i := 0; i < 20; i++ {
+		time.Sleep(50 * time.Millisecond)
+		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err == nil {
+			conn.Close()
+			connected = true
+			break
+		}
+	}
+	if !connected {
+		t.Fatal("login server did not start in time")
+	}
+
+	// Simulate browser callback
+	callbackURL := fmt.Sprintf("http://127.0.0.1:%d/callback?token=test-jwt-token-1234567890", port)
+	resp, err := http.Get(callbackURL)
+	if err != nil {
+		t.Fatalf("callback request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("callback status: got %d, want 200", resp.StatusCode)
+	}
+
+	// Wait for cmdLogin to finish
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("cmdLogin did not finish after callback")
+	}
+
+	// Verify config was saved
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+	if cfg.Token != "test-jwt-token-1234567890" {
+		t.Errorf("token: got %q, want 'test-jwt-token-1234567890'", cfg.Token)
+	}
+	if cfg.APIURL != "https://example.com" {
+		t.Errorf("APIURL: got %q, want 'https://example.com'", cfg.APIURL)
+	}
+}
+
+func TestCmdLogin_RejectsShortToken(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("cannot find free port: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	listener.Close()
+
+	go func() {
+		cmdLogin([]string{"--port", fmt.Sprintf("%d", port), "--api-url", "https://example.com"})
+	}()
+
+	// Wait for server
+	for i := 0; i < 20; i++ {
+		time.Sleep(50 * time.Millisecond)
+		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err == nil {
+			conn.Close()
+			break
+		}
+	}
+
+	// Send short token — should be rejected
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?token=short", port))
+	if err != nil {
+		t.Fatalf("callback failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400 for short token, got %d", resp.StatusCode)
+	}
+}
+
+func TestCmdLogin_RejectsMissingToken(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("cannot find free port: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	listener.Close()
+
+	go func() {
+		cmdLogin([]string{"--port", fmt.Sprintf("%d", port), "--api-url", "https://example.com"})
+	}()
+
+	for i := 0; i < 20; i++ {
+		time.Sleep(50 * time.Millisecond)
+		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err == nil {
+			conn.Close()
+			break
+		}
+	}
+
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/callback", port))
+	if err != nil {
+		t.Fatalf("callback failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400 for missing token, got %d", resp.StatusCode)
+	}
+}
+
+func TestCmdLogin_RejectsPostMethod(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("cannot find free port: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	listener.Close()
+
+	go func() {
+		cmdLogin([]string{"--port", fmt.Sprintf("%d", port), "--api-url", "https://example.com"})
+	}()
+
+	for i := 0; i < 20; i++ {
+		time.Sleep(50 * time.Millisecond)
+		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err == nil {
+			conn.Close()
+			break
+		}
+	}
+
+	resp, err := http.Post(fmt.Sprintf("http://127.0.0.1:%d/callback?token=validtoken1234567890", port), "", nil)
+	if err != nil {
+		t.Fatalf("callback failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405 for POST, got %d", resp.StatusCode)
 	}
 }
 
