@@ -39,7 +39,7 @@ echo "Detected: ${OS}/${ARCH}"
 
 # Get installation directory
 INSTALL_DIR="${HOME}/.qmax"
-CONFIG_DIR="${HOME}/.qamax"
+CONFIG_DIR="${HOME}/.qmax"
 echo "Installing to: $INSTALL_DIR"
 echo ""
 
@@ -49,8 +49,8 @@ mkdir -p "$CONFIG_DIR"
 chmod 700 "$CONFIG_DIR"
 
 # Determine version to install
-if [ -n "$QAMAX_VERSION" ]; then
-    VERSION="$QAMAX_VERSION"
+if [ -n "$QMAX_VERSION" ]; then
+    VERSION="$QMAX_VERSION"
     DOWNLOAD_URL="https://github.com/$REPO/releases/download/${VERSION}/${BINARY_NAME}"
     echo "Installing version: $VERSION"
 else

@@ -23,7 +23,7 @@ This detects your OS and architecture, downloads the correct binary from GitHub 
 To install a specific version:
 
 ```bash
-QAMAX_VERSION=v3.0.0 curl -fsSL https://raw.githubusercontent.com/Quality-Max/qamax-local-agent/main/install.sh | bash
+QMAX_VERSION=v3.0.0 curl -fsSL https://raw.githubusercontent.com/Quality-Max/qamax-local-agent/main/install.sh | bash
 ```
 
 ### Download binary manually
@@ -72,7 +72,7 @@ qmax run --cloud-url https://app.qualitymax.io          # Start the agent daemon
 
 ### `login`
 
-Authenticate with QualityMax via browser OAuth. Opens your browser and saves the token to `~/.qamax/config.json`.
+Authenticate with QualityMax via browser OAuth. Opens your browser and saves the token to `~/.qmax/config.json`.
 
 ```bash
 qmax login                        # Default (port 9876)
@@ -111,10 +111,10 @@ When running, the agent automatically polls for **AI crawl discovery sessions** 
 
 This enables AI-powered test generation for internal applications that the cloud cannot reach.
 
-Set `QAMAX_CRAWL_HEADED=true` to see the browser during crawl sessions (useful for debugging):
+Set `QMAX_CRAWL_HEADED=true` to see the browser during crawl sessions (useful for debugging):
 
 ```bash
-QAMAX_CRAWL_HEADED=true qmax run --cloud-url https://app.qualitymax.io
+QMAX_CRAWL_HEADED=true qmax run --cloud-url https://app.qualitymax.io
 ```
 
 ### `capture`
@@ -163,7 +163,7 @@ qmax logout
 
 ## Configuration
 
-Config is stored at `~/.qamax/config.json` (mode `0600`):
+Config is stored at `~/.qmax/config.json` (mode `0600`):
 
 ```json
 {
@@ -186,7 +186,7 @@ Config is stored at `~/.qamax/config.json` (mode `0600`):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `QAMAX_CRAWL_HEADED` | `false` | Set to `true` to show the browser during AI crawl sessions |
+| `QMAX_CRAWL_HEADED` | `false` | Set to `true` to show the browser during AI crawl sessions |
 
 ## Running as a Service
 

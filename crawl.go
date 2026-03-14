@@ -157,7 +157,7 @@ func (a *Agent) ExecuteCrawlSession(ctx context.Context, session CrawlSession) {
 	defer sessionCancel()
 
 	// Determine headless mode
-	headed := strings.EqualFold(os.Getenv("QAMAX_CRAWL_HEADED"), "true")
+	headed := strings.EqualFold(os.Getenv("QMAX_CRAWL_HEADED"), "true")
 
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.Flag("headless", !headed),

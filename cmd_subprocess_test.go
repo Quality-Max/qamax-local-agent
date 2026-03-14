@@ -29,7 +29,7 @@ func TestCmdLogoutSubprocess_RemovesConfig(t *testing.T) {
 	tmp := t.TempDir()
 
 	// Create config
-	dir := filepath.Join(tmp, ".qamax")
+	dir := filepath.Join(tmp, ".qmax")
 	_ = os.MkdirAll(dir, 0700)
 	_ = os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{"token":"test"}`), 0600)
 
@@ -94,7 +94,7 @@ func TestCmdTokenSubprocess_WithToken(t *testing.T) {
 	}
 
 	tmp := t.TempDir()
-	dir := filepath.Join(tmp, ".qamax")
+	dir := filepath.Join(tmp, ".qmax")
 	_ = os.MkdirAll(dir, 0700)
 	_ = os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{"token":"my-secret-tok"}`), 0600)
 
@@ -145,7 +145,7 @@ func TestCmdProjectsSubprocess_ServerError(t *testing.T) {
 	defer server.Close()
 
 	tmp := t.TempDir()
-	dir := filepath.Join(tmp, ".qamax")
+	dir := filepath.Join(tmp, ".qmax")
 	_ = os.MkdirAll(dir, 0700)
 	cfg := fmt.Sprintf(`{"token":"test-token","api_url":"%s"}`, server.URL)
 	_ = os.WriteFile(filepath.Join(dir, "config.json"), []byte(cfg), 0600)
@@ -177,7 +177,7 @@ func TestCmdProjectsSubprocess_Success(t *testing.T) {
 	defer server.Close()
 
 	tmp := t.TempDir()
-	dir := filepath.Join(tmp, ".qamax")
+	dir := filepath.Join(tmp, ".qmax")
 	_ = os.MkdirAll(dir, 0700)
 	cfg := fmt.Sprintf(`{"token":"test-token","api_url":"%s"}`, server.URL)
 	_ = os.WriteFile(filepath.Join(dir, "config.json"), []byte(cfg), 0600)
@@ -383,7 +383,7 @@ func TestMainSubprocess_Token(t *testing.T) {
 	}
 
 	tmp := t.TempDir()
-	dir := filepath.Join(tmp, ".qamax")
+	dir := filepath.Join(tmp, ".qmax")
 	_ = os.MkdirAll(dir, 0700)
 	_ = os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{"token":"main-test-tok"}`), 0600)
 
@@ -787,7 +787,7 @@ func TestCmdRunSubprocess_WithConfig(t *testing.T) {
 	}
 
 	tmp := t.TempDir()
-	dir := filepath.Join(tmp, ".qamax")
+	dir := filepath.Join(tmp, ".qmax")
 	_ = os.MkdirAll(dir, 0700)
 	_ = os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{"api_url":"http://127.0.0.1:1","agent_id":"test-id","api_key":"test-key"}`), 0600)
 

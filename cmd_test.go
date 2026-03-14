@@ -24,7 +24,7 @@ func TestCmdLogout_RemovesConfig(t *testing.T) {
 	}
 
 	// Verify it exists
-	path := filepath.Join(tmp, ".qamax", "config.json")
+	path := filepath.Join(tmp, ".qmax", "config.json")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		t.Fatal("config file should exist before logout")
 	}

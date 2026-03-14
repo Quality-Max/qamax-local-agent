@@ -98,7 +98,7 @@ func TestLoginSavesConfigFile(t *testing.T) {
 		t.Fatalf("Save failed: %v", err)
 	}
 
-	path := filepath.Join(tmp, ".qamax", "config.json")
+	path := filepath.Join(tmp, ".qmax", "config.json")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		t.Fatal("config file was not created")
 	}

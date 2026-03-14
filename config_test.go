@@ -38,7 +38,7 @@ func TestSaveAndLoadConfig(t *testing.T) {
 	}
 
 	// Verify file permissions
-	path := filepath.Join(tmp, ".qamax", "config.json")
+	path := filepath.Join(tmp, ".qmax", "config.json")
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatalf("config file not created: %v", err)
@@ -49,7 +49,7 @@ func TestSaveAndLoadConfig(t *testing.T) {
 	}
 
 	// Verify directory permissions
-	dirInfo, err := os.Stat(filepath.Join(tmp, ".qamax"))
+	dirInfo, err := os.Stat(filepath.Join(tmp, ".qmax"))
 	if err != nil {
 		t.Fatalf("config dir not created: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestSaveConfig_JSONFormat(t *testing.T) {
 		t.Fatalf("Save failed: %v", err)
 	}
 
-	path := filepath.Join(tmp, ".qamax", "config.json")
+	path := filepath.Join(tmp, ".qmax", "config.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("ReadFile failed: %v", err)
@@ -133,7 +133,7 @@ func TestLoadConfig_InvalidJSON(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
 
-	dir := filepath.Join(tmp, ".qamax")
+	dir := filepath.Join(tmp, ".qmax")
 	_ = os.MkdirAll(dir, 0700)
 	_ = os.WriteFile(filepath.Join(dir, "config.json"), []byte("not json"), 0600)
 

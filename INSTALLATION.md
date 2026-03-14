@@ -61,7 +61,7 @@ qmax login --port 8080        # Custom callback port
 qmax login --api-url URL      # Custom QualityMax URL
 ```
 
-Opens your browser to log in. The token is saved to `~/.qamax/config.json`.
+Opens your browser to log in. The token is saved to `~/.qmax/config.json`.
 
 ### `qmax run`
 
@@ -128,7 +128,7 @@ qmax logout
 
 ## Configuration
 
-Config is stored at `~/.qamax/config.json` (mode 0600):
+Config is stored at `~/.qmax/config.json` (mode 0600):
 
 ```json
 {
@@ -148,7 +148,7 @@ Config is stored at `~/.qamax/config.json` (mode 0600):
 
 ### macOS (LaunchAgent)
 
-Create `~/Library/LaunchAgents/com.qamax.agent.plist`:
+Create `~/Library/LaunchAgents/com.qmax.agent.plist`:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -156,7 +156,7 @@ Create `~/Library/LaunchAgents/com.qamax.agent.plist`:
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.qamax.agent</string>
+    <string>com.qmax.agent</string>
     <key>ProgramArguments</key>
     <array>
         <string>/Users/YOUR_USERNAME/.qmax/qmax</string>
@@ -178,7 +178,7 @@ Create `~/Library/LaunchAgents/com.qamax.agent.plist`:
 
 Load the service:
 ```bash
-launchctl load ~/Library/LaunchAgents/com.qamax.agent.plist
+launchctl load ~/Library/LaunchAgents/com.qmax.agent.plist
 ```
 
 ### Linux (systemd)

@@ -50,8 +50,8 @@ func newTimedBrowserContext(t *testing.T, timeout time.Duration) (context.Contex
 // --- crawlClick tests ---
 
 func TestCrawlClick_Success(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoBrowser(t)
 
@@ -84,8 +84,8 @@ func TestCrawlClick_Success(t *testing.T) {
 }
 
 func TestCrawlClick_JSFallbackOnHidden(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoBrowser(t)
 
@@ -115,8 +115,8 @@ func TestCrawlClick_JSFallbackOnHidden(t *testing.T) {
 // --- crawlFill tests ---
 
 func TestCrawlFill_Success(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoBrowser(t)
 
@@ -151,8 +151,8 @@ func TestCrawlFill_Success(t *testing.T) {
 // --- crawlSelect tests ---
 
 func TestCrawlSelect_Success(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoBrowser(t)
 
@@ -191,8 +191,8 @@ func TestCrawlSelect_Success(t *testing.T) {
 // --- crawlComboboxSelect tests ---
 
 func TestCrawlComboboxSelect_NoOptions(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoBrowser(t)
 
@@ -225,8 +225,8 @@ func TestCrawlComboboxSelect_NoOptions(t *testing.T) {
 // --- dismissCookieConsent tests ---
 
 func TestDismissCookieConsent_WithAcceptAllButton(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoBrowser(t)
 
@@ -260,8 +260,8 @@ func TestDismissCookieConsent_WithAcceptAllButton(t *testing.T) {
 }
 
 func TestDismissCookieConsent_NoBannerPresent(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoBrowser(t)
 
@@ -286,8 +286,8 @@ func TestDismissCookieConsent_NoBannerPresent(t *testing.T) {
 // --- captureSnapshot tests ---
 
 func TestCaptureSnapshot_BasicPage(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoBrowser(t)
 
@@ -324,8 +324,8 @@ func TestCaptureSnapshot_BasicPage(t *testing.T) {
 }
 
 func TestCaptureSnapshot_WithScript(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoBrowser(t)
 
@@ -363,8 +363,8 @@ func TestCaptureSnapshot_WithScript(t *testing.T) {
 }
 
 func TestCaptureSnapshot_InvalidScript(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoBrowser(t)
 
@@ -401,8 +401,8 @@ func TestCaptureSnapshot_InvalidScript(t *testing.T) {
 // --- ExecuteCrawlSession tests ---
 
 func TestExecuteCrawlSession_DoneOnFirstStep(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoBrowser(t)
 
@@ -448,8 +448,8 @@ func TestExecuteCrawlSession_DoneOnFirstStep(t *testing.T) {
 }
 
 func TestExecuteCrawlSession_ClickThenDone(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoBrowser(t)
 
@@ -501,8 +501,8 @@ func TestExecuteCrawlSession_ClickThenDone(t *testing.T) {
 }
 
 func TestExecuteCrawlSession_InvalidURL(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoBrowser(t)
 
@@ -542,8 +542,8 @@ func TestExecuteCrawlSession_InvalidURL(t *testing.T) {
 // --- executeCrawlAction tests ---
 
 func TestExecuteCrawlAction_AllActionTypes(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoBrowser(t)
 
@@ -586,8 +586,8 @@ func TestExecuteCrawlAction_AllActionTypes(t *testing.T) {
 }
 
 func TestExecuteCrawlAction_ComboboxSelect(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoBrowser(t)
 
@@ -617,8 +617,8 @@ func TestExecuteCrawlAction_ComboboxSelect(t *testing.T) {
 // --- doJSONWithRetry edge cases ---
 
 func TestDoJSONWithRetry_SuccessOnFirstTry(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -640,8 +640,8 @@ func TestDoJSONWithRetry_SuccessOnFirstTry(t *testing.T) {
 }
 
 func TestDoJSONWithRetry_WithBody(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	var received map[string]string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -664,8 +664,8 @@ func TestDoJSONWithRetry_WithBody(t *testing.T) {
 // --- PollCrawlSessions edge cases ---
 
 func TestPollCrawlSessions_EmptySession(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -690,8 +690,8 @@ func TestPollCrawlSessions_EmptySession(t *testing.T) {
 }
 
 func TestPollCrawlSessions_InvalidJSON(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -707,8 +707,8 @@ func TestPollCrawlSessions_InvalidJSON(t *testing.T) {
 }
 
 func TestPollCrawlSessions_CustomStatusCode(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
@@ -726,8 +726,8 @@ func TestPollCrawlSessions_CustomStatusCode(t *testing.T) {
 // --- submitCrawlError edge cases ---
 
 func TestSubmitCrawlError_ServerFails(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -742,8 +742,8 @@ func TestSubmitCrawlError_ServerFails(t *testing.T) {
 // --- submitSnapshot edge cases ---
 
 func TestSubmitSnapshot_BadRequest(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
@@ -759,8 +759,8 @@ func TestSubmitSnapshot_BadRequest(t *testing.T) {
 }
 
 func TestSubmitSnapshot_InvalidResponseJSON(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

@@ -48,8 +48,8 @@ func newBrowserContext(t *testing.T) (context.Context, context.CancelFunc) {
 // --- captureSnapshot tests ---
 
 func TestCaptureSnapshot(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoChrome(t)
 
@@ -99,8 +99,8 @@ func TestCaptureSnapshot(t *testing.T) {
 }
 
 func TestCaptureSnapshot_WithSnapshotScript(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoChrome(t)
 
@@ -151,8 +151,8 @@ func TestCaptureSnapshot_WithSnapshotScript(t *testing.T) {
 // --- executeCrawlAction tests ---
 
 func TestExecuteCrawlAction_Click(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoChrome(t)
 
@@ -187,8 +187,8 @@ func TestExecuteCrawlAction_Click(t *testing.T) {
 }
 
 func TestExecuteCrawlAction_Fill(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoChrome(t)
 
@@ -222,8 +222,8 @@ func TestExecuteCrawlAction_Fill(t *testing.T) {
 }
 
 func TestExecuteCrawlAction_Select(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoChrome(t)
 
@@ -261,8 +261,8 @@ func TestExecuteCrawlAction_Select(t *testing.T) {
 }
 
 func TestExecuteCrawlAction_UnknownAction(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	a := &Agent{}
 	action := &CrawlAction{Action: "unknown_action", Selector: "#btn"}
@@ -278,8 +278,8 @@ func TestExecuteCrawlAction_UnknownAction(t *testing.T) {
 // --- crawlClick JS fallback test ---
 
 func TestCrawlClick_JSFallback(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoChrome(t)
 
@@ -312,8 +312,8 @@ func TestCrawlClick_JSFallback(t *testing.T) {
 // --- dismissCookieConsent test ---
 
 func TestDismissCookieConsent_WithAcceptButton(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoChrome(t)
 
@@ -348,8 +348,8 @@ func TestDismissCookieConsent_WithAcceptButton(t *testing.T) {
 }
 
 func TestDismissCookieConsent_NoBanner(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoChrome(t)
 
@@ -374,8 +374,8 @@ func TestDismissCookieConsent_NoBanner(t *testing.T) {
 // --- ExecuteCrawlSession integration test ---
 
 func TestExecuteCrawlSession_Integration(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoChrome(t)
 
@@ -439,8 +439,8 @@ func TestExecuteCrawlSession_Integration(t *testing.T) {
 }
 
 func TestExecuteCrawlSession_ContextCancelled(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoChrome(t)
 
@@ -484,8 +484,8 @@ func TestExecuteCrawlSession_ContextCancelled(t *testing.T) {
 // --- ExecuteCrawlSession error path test ---
 
 func TestExecuteCrawlSession_SnapshotError(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoChrome(t)
 
@@ -533,8 +533,8 @@ func TestExecuteCrawlSession_SnapshotError(t *testing.T) {
 }
 
 func TestExecuteCrawlSession_ActionError(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoChrome(t)
 
@@ -595,8 +595,8 @@ func TestExecuteCrawlSession_ActionError(t *testing.T) {
 // --- crawlComboboxSelect test ---
 
 func TestCrawlComboboxSelect(t *testing.T) {
-	if os.Getenv("QAMAX_BROWSER_TESTS") == "" {
-		t.Skip("Skipping browser test (set QAMAX_BROWSER_TESTS=1 to run)")
+	if os.Getenv("QMAX_BROWSER_TESTS") == "" {
+		t.Skip("Skipping browser test (set QMAX_BROWSER_TESTS=1 to run)")
 	}
 	skipIfNoChrome(t)
 
