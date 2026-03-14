@@ -735,6 +735,14 @@ func (a *Agent) Run(ctx context.Context) error {
 
 				go a.ExecuteTest(ctx, assignment)
 			}
+
+			// Poll for crawl sessions
+			crawlSession, crawlErr := a.PollCrawlSessions()
+			if crawlErr != nil {
+				log.Printf("WARN: polling crawl sessions: %v", crawlErr)
+			} else if crawlSession != nil {
+				go a.ExecuteCrawlSession(ctx, *crawlSession)
+			}
 		}
 	}
 }
