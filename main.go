@@ -41,6 +41,8 @@ func main() {
 		cmdPR(os.Args[2:])
 	case "sast":
 		cmdSast(os.Args[2:])
+	case "ci":
+		cmdCI(os.Args[2:])
 	case "help", "--help", "-h":
 		printUsage()
 	case "version", "--version", "-v":
@@ -78,6 +80,7 @@ Commands:
   token      Print the saved OAuth token to stdout
   logout     Remove saved credentials
   sast       SAST security scanning (verify, install, scan, setup)
+  ci         Headless CI runner (auth + run + report for GitHub Actions)
 
 Flags:
   --help     Show this help message
