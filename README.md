@@ -1,5 +1,7 @@
 # qmax
 
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/qualitymax)
+
 Cross-platform CLI for running [QualityMax](https://qualitymax.io) Playwright tests locally.
 
 - **Run** as a daemon to poll and execute Playwright tests from QualityMax cloud
