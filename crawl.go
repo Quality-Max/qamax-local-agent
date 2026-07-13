@@ -228,7 +228,7 @@ func (a *Agent) ExecuteCrawlSession(ctx context.Context, session CrawlSession) {
 		}
 
 		// Wait for page to settle after action
-		chromedp.Run(browserCtx, chromedp.Sleep(1*time.Second))
+		_ = chromedp.Run(browserCtx, chromedp.Sleep(1*time.Second))
 	}
 
 	log.Printf("CRAWL [%s] Reached max steps (%d)", session.SessionID, session.MaxSteps)
@@ -398,7 +398,7 @@ func (a *Agent) crawlComboboxSelect(ctx context.Context, selector, value string)
 	}
 
 	// Wait for dropdown to appear
-	chromedp.Run(ctx, chromedp.Sleep(300*time.Millisecond))
+	_ = chromedp.Run(ctx, chromedp.Sleep(300*time.Millisecond))
 
 	// Type the value to filter options
 	typeCtx, typeCancel := context.WithTimeout(ctx, 5*time.Second)
@@ -408,7 +408,7 @@ func (a *Agent) crawlComboboxSelect(ctx context.Context, selector, value string)
 	}
 
 	// Wait for options to filter
-	chromedp.Run(ctx, chromedp.Sleep(300*time.Millisecond))
+	_ = chromedp.Run(ctx, chromedp.Sleep(300*time.Millisecond))
 
 	// Click the first visible option
 	optionCtx, optionCancel := context.WithTimeout(ctx, 5*time.Second)
@@ -466,7 +466,7 @@ func (a *Agent) dismissCookieConsent(ctx context.Context, sessionID string) {
 		if err == nil {
 			log.Printf("CRAWL [%s] Dismissed cookie consent with %q", sessionID, text)
 			// Wait for overlay to disappear
-			chromedp.Run(ctx, chromedp.Sleep(500*time.Millisecond))
+			_ = chromedp.Run(ctx, chromedp.Sleep(500*time.Millisecond))
 			return
 		}
 	}
