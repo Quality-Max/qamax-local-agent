@@ -61,7 +61,7 @@ type rule struct {
 }
 
 // defaultRules is the embedded baseline allow-list. A file-based override
-// (~/.qamax/egress-policy.yaml) is a documented follow-up; the embedded default
+// (~/.qmax/egress-policy.yaml) is a documented follow-up; the embedded default
 // is deliberately conservative.
 var defaultRules = []rule{
 	{
