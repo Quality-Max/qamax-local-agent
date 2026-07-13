@@ -15,10 +15,11 @@ const legacyStateDirName = ".qamax"
 // directory into the unified ~/.qmax on first run, so existing users keep their
 // login and the agent keeps its signing identity across the rename.
 //
-// It merges entry-by-entry rather than renaming the directory, because ~/.qmax
-// already exists (it holds the installed binary). It never clobbers anything
-// already present in ~/.qmax, and is best-effort and idempotent — safe to call
-// on every startup.
+// It merges into ~/.qmax (which already exists — it holds the installed binary)
+// rather than renaming, recursing into subdirectories so legacy receipts are
+// never left stranded even when ~/.qmax/receipts already exists. It never
+// clobbers a file already present in ~/.qmax, and is best-effort + idempotent —
+// safe to call on every startup.
 func migrateLegacyStateDir() {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -29,18 +30,37 @@ func migrateLegacyStateDir() {
 	if oldDir == newDir {
 		return
 	}
-	entries, err := os.ReadDir(oldDir)
-	if err != nil {
-		return // no legacy dir (or unreadable) — nothing to migrate
+	if _, err := os.Stat(oldDir); err != nil {
+		return // no legacy dir — nothing to migrate
 	}
-	if err := os.MkdirAll(newDir, 0o700); err != nil {
-		return
+	_ = mergeTree(oldDir, newDir)
+}
+
+// mergeTree recursively moves entries from src into dst, creating directories as
+// needed. Directories are MERGED (recursed into), not skipped, so a legacy
+// subdirectory survives even when the destination subdirectory already exists —
+// this is what keeps old receipts reachable. A file already present in dst is
+// never overwritten. Best-effort: individual failures are ignored so a partial
+// migration never blocks startup, and re-running completes what remains.
+func mergeTree(src, dst string) error {
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dst, 0o700); err != nil {
+		return err
 	}
 	for _, e := range entries {
-		dst := filepath.Join(newDir, e.Name())
-		if _, err := os.Stat(dst); err == nil {
-			continue // already migrated / present — never clobber
+		s := filepath.Join(src, e.Name())
+		d := filepath.Join(dst, e.Name())
+		if e.IsDir() {
+			_ = mergeTree(s, d) // recurse — merge, never skip a whole subtree
+			continue
 		}
-		_ = os.Rename(filepath.Join(oldDir, e.Name()), dst)
+		if _, err := os.Stat(d); err == nil {
+			continue // file already migrated / present — never clobber
+		}
+		_ = os.Rename(s, d)
 	}
+	return nil
 }

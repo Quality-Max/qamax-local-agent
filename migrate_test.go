@@ -65,6 +65,41 @@ func TestMigrateLegacyStateDir(t *testing.T) {
 	}
 }
 
+func TestMigrateMergesReceiptsRecursively(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	oldR := filepath.Join(home, ".qamax", "receipts")
+	newR := filepath.Join(home, ".qmax", "receipts")
+	// Both receipts/ dirs already exist — the buggy version skipped the whole
+	// legacy dir here, stranding old receipts.
+	if err := os.MkdirAll(oldR, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(newR, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	migWrite(t, filepath.Join(oldR, "legacy.json"), "legacy")    // legacy-only
+	migWrite(t, filepath.Join(newR, "current.json"), "current")  // existing-only
+	migWrite(t, filepath.Join(oldR, "dup.json"), "old-dup")      // same name in both...
+	migWrite(t, filepath.Join(newR, "dup.json"), "new-dup")      // ...dst must win
+
+	migrateLegacyStateDir()
+
+	// Legacy receipt is now reachable under ~/.qmax/receipts (the bug this guards).
+	if got := migRead(t, filepath.Join(newR, "legacy.json")); got != "legacy" {
+		t.Errorf("legacy receipt not merged into ~/.qmax/receipts: %q", got)
+	}
+	// Existing receipt preserved.
+	if got := migRead(t, filepath.Join(newR, "current.json")); got != "current" {
+		t.Errorf("existing receipt lost: %q", got)
+	}
+	// Same-named receipt: destination is never clobbered.
+	if got := migRead(t, filepath.Join(newR, "dup.json")); got != "new-dup" {
+		t.Errorf("migration clobbered an existing receipt: %q", got)
+	}
+}
+
 func TestMigrateNoLegacyDirIsNoop(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
