@@ -2,10 +2,16 @@ BINARY_NAME = qmax
 VERSION = 4.0.0
 BUILD_DIR = build
 
+# Stamp the reproducible build SHA into the receipt module so every Exposure
+# Receipt carries agent_build_sha = the source commit (not "dev"). BuildSHA is a
+# package var in github.com/Quality-Max/qmax-receipt, set ONLY via -ldflags -X.
+SHA ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
+LDFLAGS = -s -w -X github.com/Quality-Max/qmax-receipt.BuildSHA=$(SHA)
+
 .PHONY: build test test-race lint vet check clean build-all setup-hooks
 
 build:
-	go build -ldflags="-s -w" -o $(BINARY_NAME) .
+	go build -ldflags="$(LDFLAGS)" -o $(BINARY_NAME) .
 
 test:
 	go test ./...
@@ -33,9 +39,9 @@ clean:
 
 build-all: clean
 	@mkdir -p $(BUILD_DIR)
-	GOOS=darwin  GOARCH=amd64 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 .
-	GOOS=darwin  GOARCH=arm64 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 .
-	GOOS=linux   GOARCH=amd64 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 .
-	GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe .
+	GOOS=darwin  GOARCH=amd64 go build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 .
+	GOOS=darwin  GOARCH=arm64 go build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 .
+	GOOS=linux   GOARCH=amd64 go build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 .
+	GOOS=windows GOARCH=amd64 go build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe .
 	@echo "Binaries built in $(BUILD_DIR)/"
 	@ls -lh $(BUILD_DIR)/

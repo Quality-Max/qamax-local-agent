@@ -428,7 +428,6 @@ func TestExecuteCrawlSession_DoneOnFirstStep(t *testing.T) {
 		CloudURL: apiServer.URL,
 		AgentID:  "crawl-done-agent",
 		APIKey:   "crawl-done-key",
-		client:   &http.Client{Timeout: 30 * time.Second},
 	}
 
 	session := CrawlSession{
@@ -481,7 +480,6 @@ func TestExecuteCrawlSession_ClickThenDone(t *testing.T) {
 		CloudURL: apiServer.URL,
 		AgentID:  "crawl-click-agent",
 		APIKey:   "crawl-click-key",
-		client:   &http.Client{Timeout: 30 * time.Second},
 	}
 
 	session := CrawlSession{
@@ -520,7 +518,6 @@ func TestExecuteCrawlSession_InvalidURL(t *testing.T) {
 		CloudURL: apiServer.URL,
 		AgentID:  "crawl-err-agent",
 		APIKey:   "crawl-err-key",
-		client:   &http.Client{Timeout: 30 * time.Second},
 	}
 
 	session := CrawlSession{
@@ -627,12 +624,12 @@ func TestDoJSONWithRetry_SuccessOnFirstTry(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	resp, body, err := a.doJSONWithRetry("GET", server.URL+"/test", nil, nil, 5*time.Second)
+	status, body, err := a.doJSONWithRetry(context.Background(), "GET", server.URL+"/test", nil, nil, 5*time.Second)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("expected 200, got %d", resp.StatusCode)
+	if status != http.StatusOK {
+		t.Errorf("expected 200, got %d", status)
 	}
 	if string(body) != `{"ok":true}` {
 		t.Errorf("body: %s", body)
@@ -652,7 +649,7 @@ func TestDoJSONWithRetry_WithBody(t *testing.T) {
 
 	a := newTestAgent(server.URL)
 	payload := map[string]string{"key": "val"}
-	_, _, err := a.doJSONWithRetry("POST", server.URL+"/test", payload, nil, 5*time.Second)
+	_, _, err := a.doJSONWithRetry(context.Background(), "POST", server.URL+"/test", payload, nil, 5*time.Second)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -680,7 +677,7 @@ func TestPollCrawlSessions_EmptySession(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	session, err := a.PollCrawlSessions()
+	session, err := a.PollCrawlSessions(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -700,7 +697,7 @@ func TestPollCrawlSessions_InvalidJSON(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	_, err := a.PollCrawlSessions()
+	_, err := a.PollCrawlSessions(context.Background())
 	if err == nil {
 		t.Error("expected error for invalid JSON")
 	}
@@ -717,7 +714,7 @@ func TestPollCrawlSessions_CustomStatusCode(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	_, err := a.PollCrawlSessions()
+	_, err := a.PollCrawlSessions(context.Background())
 	if err == nil {
 		t.Error("expected error for 403 response")
 	}
@@ -736,7 +733,7 @@ func TestSubmitCrawlError_ServerFails(t *testing.T) {
 
 	a := newTestAgent(server.URL)
 	// Should not panic
-	a.submitCrawlError("sess-fail", "test error")
+	a.submitCrawlError(context.Background(), "sess-fail", "test error")
 }
 
 // --- submitSnapshot edge cases ---
@@ -752,7 +749,7 @@ func TestSubmitSnapshot_BadRequest(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	_, err := a.submitSnapshot("sess-bad", &CrawlSnapshot{SessionID: "sess-bad", StepNum: 1})
+	_, err := a.submitSnapshot(context.Background(), "sess-bad", &CrawlSnapshot{SessionID: "sess-bad", StepNum: 1})
 	if err == nil {
 		t.Error("expected error for 400 response")
 	}
@@ -769,7 +766,7 @@ func TestSubmitSnapshot_InvalidResponseJSON(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	_, err := a.submitSnapshot("sess-json", &CrawlSnapshot{SessionID: "sess-json", StepNum: 1})
+	_, err := a.submitSnapshot(context.Background(), "sess-json", &CrawlSnapshot{SessionID: "sess-json", StepNum: 1})
 	if err == nil {
 		t.Error("expected error for invalid JSON response")
 	}

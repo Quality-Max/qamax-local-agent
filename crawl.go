@@ -1,12 +1,10 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -16,6 +14,9 @@ import (
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
+
+	receipt "github.com/Quality-Max/qmax-receipt"
+	"github.com/Quality-Max/qmax-local-agent/httpx"
 )
 
 // --- Crawl data structures ---
@@ -31,15 +32,15 @@ type CrawlSession struct {
 
 // CrawlSnapshot is sent to the server after each crawl step.
 type CrawlSnapshot struct {
-	SessionID           string           `json:"session_id"`
-	StepNum             int              `json:"step_num"`
-	URL                 string           `json:"url"`
-	Title               string           `json:"title"`
-	InteractiveElements []map[string]any `json:"interactive_elements"`
-	Forms               []map[string]any `json:"forms"`
+	SessionID           string            `json:"session_id"`
+	StepNum             int               `json:"step_num"`
+	URL                 string            `json:"url"`
+	Title               string            `json:"title"`
+	InteractiveElements []map[string]any  `json:"interactive_elements"`
+	Forms               []map[string]any  `json:"forms"`
 	Selectors           map[string]string `json:"selectors"`
-	ScreenshotBase64    string           `json:"screenshot_base64"`
-	AccessibilityTree   string           `json:"accessibility_tree"`
+	ScreenshotBase64    string            `json:"screenshot_base64"`
+	AccessibilityTree   string            `json:"accessibility_tree"`
 }
 
 // CrawlAction is the server's response telling the agent what to do next.
@@ -53,83 +54,55 @@ type CrawlAction struct {
 
 // --- HTTP helpers with retry ---
 
-// doJSONWithRetry wraps doJSON with retry logic for 5xx errors.
-func (a *Agent) doJSONWithRetry(method, url string, body interface{}, headers map[string]string, timeout time.Duration) (*http.Response, []byte, error) {
-	// Use a dedicated client with the specified timeout
-	client := &http.Client{Timeout: timeout}
-
+// doJSONWithRetry sends a JSON request through the httpx egress chokepoint (so it
+// is recorded in the active Exposure Receipt) with retry logic for 5xx errors.
+// Each attempt is a distinct egress and is recorded as such. ctx routes the
+// receipt for the crawl session.
+func (a *Agent) doJSONWithRetry(ctx context.Context, method, url string, body interface{}, headers map[string]string, timeout time.Duration) (int, []byte, error) {
 	var lastErr error
 	for attempt := 0; attempt < 3; attempt++ {
 		if attempt > 0 {
 			time.Sleep(time.Duration(attempt) * time.Second)
 		}
 
-		var reqBody io.Reader
-		if body != nil {
-			data, err := json.Marshal(body)
-			if err != nil {
-				return nil, nil, fmt.Errorf("marshal request: %w", err)
-			}
-			reqBody = bytes.NewReader(data)
-		}
-
-		req, err := http.NewRequest(method, url, reqBody)
+		status, respBody, err := httpx.DoJSON(ctx, method, url, body, headers, timeout)
 		if err != nil {
-			return nil, nil, fmt.Errorf("create request: %w", err)
-		}
-		if body != nil {
-			req.Header.Set("Content-Type", "application/json")
-		}
-		for k, v := range headers {
-			req.Header.Set(k, v)
-		}
-
-		resp, err := client.Do(req)
-		if err != nil {
-			lastErr = fmt.Errorf("do request: %w", err)
+			lastErr = err
 			continue
 		}
 
-		const maxResponseBody = 50 * 1024 * 1024
-		respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBody))
-		resp.Body.Close()
-		if err != nil {
-			lastErr = fmt.Errorf("read response: %w", err)
+		if status >= 500 {
+			lastErr = fmt.Errorf("server error: %d - %s", status, string(respBody))
+			log.Printf("WARN: Crawl HTTP %d on attempt %d, retrying...", status, attempt+1)
 			continue
 		}
 
-		if resp.StatusCode >= 500 {
-			lastErr = fmt.Errorf("server error: %d - %s", resp.StatusCode, string(respBody))
-			log.Printf("WARN: Crawl HTTP %d on attempt %d, retrying...", resp.StatusCode, attempt+1)
-			continue
-		}
-
-		return resp, respBody, nil
+		return status, respBody, nil
 	}
 
-	return nil, nil, fmt.Errorf("all retries exhausted: %w", lastErr)
+	return 0, nil, fmt.Errorf("all retries exhausted: %w", lastErr)
 }
 
 // --- Polling ---
 
 // PollCrawlSessions checks the server for pending crawl sessions.
-func (a *Agent) PollCrawlSessions() (*CrawlSession, error) {
+func (a *Agent) PollCrawlSessions(ctx context.Context) (*CrawlSession, error) {
 	if a.AgentID == "" || a.APIKey == "" {
 		return nil, nil
 	}
 
 	url := fmt.Sprintf("%s/api/agent/%s/crawl/pending", a.CloudURL, a.AgentID)
-	resp, body, err := a.doJSONWithRetry("GET", url, nil, a.authHeaders(), 10*time.Second)
+	status, body, err := a.doJSONWithRetry(ctx, "GET", url, nil, a.authHeaders(), 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotFound {
+	if status == http.StatusNoContent || status == http.StatusNotFound {
 		return nil, nil
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("poll crawl sessions failed: %d - %s", resp.StatusCode, string(body))
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("poll crawl sessions failed: %d - %s", status, string(body))
 	}
 
 	var wrapper struct {
@@ -152,12 +125,25 @@ func (a *Agent) PollCrawlSessions() (*CrawlSession, error) {
 func (a *Agent) ExecuteCrawlSession(ctx context.Context, session CrawlSession) {
 	log.Printf("CRAWL [%s] Starting crawl session: url=%s, max_steps=%d", session.SessionID, session.URL, session.MaxSteps)
 
+	// Per-crawl Exposure Receipt, routed via ctx so concurrent crawls/assignments
+	// never share a manifest. Note: the browser↔target-app traffic is NOT recorded
+	// (it is customer→customer and never reaches us); only snapshot/error uploads
+	// to QualityMax appear here.
+	ctx, rec := receipt.Begin(ctx, "daemon:crawl")
+	defer func() {
+		if path, err := rec.Finalize(); err != nil {
+			log.Printf("CRAWL [%s] WARN: failed to finalize exposure receipt: %v", session.SessionID, err)
+		} else {
+			log.Printf("CRAWL [%s] Exposure receipt written: %s", session.SessionID, path)
+		}
+	}()
+
 	// Overall session timeout: 10 minutes
 	sessionCtx, sessionCancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer sessionCancel()
 
 	// Determine headless mode
-	headed := strings.EqualFold(os.Getenv("QMAX_CRAWL_HEADED"), "true")
+	headed := strings.EqualFold(os.Getenv("QAMAX_CRAWL_HEADED"), "true")
 
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.Flag("headless", !headed),
@@ -180,7 +166,7 @@ func (a *Agent) ExecuteCrawlSession(ctx context.Context, session CrawlSession) {
 		emulation.SetDeviceMetricsOverride(1280, 720, 1.0, false),
 	); err != nil {
 		log.Printf("CRAWL [%s] ERROR setting viewport: %v", session.SessionID, err)
-		a.submitCrawlError(session.SessionID, fmt.Sprintf("failed to set viewport: %v", err))
+		a.submitCrawlError(ctx, session.SessionID, fmt.Sprintf("failed to set viewport: %v", err))
 		return
 	}
 
@@ -192,7 +178,7 @@ func (a *Agent) ExecuteCrawlSession(ctx context.Context, session CrawlSession) {
 		chromedp.Sleep(500*time.Millisecond),
 	); err != nil {
 		log.Printf("CRAWL [%s] ERROR navigating: %v", session.SessionID, err)
-		a.submitCrawlError(session.SessionID, fmt.Sprintf("failed to navigate to %s: %v", session.URL, err))
+		a.submitCrawlError(ctx, session.SessionID, fmt.Sprintf("failed to navigate to %s: %v", session.URL, err))
 		return
 	}
 
@@ -214,15 +200,15 @@ func (a *Agent) ExecuteCrawlSession(ctx context.Context, session CrawlSession) {
 		snapshot, err := a.captureSnapshot(browserCtx, session, step)
 		if err != nil {
 			log.Printf("CRAWL [%s] ERROR capturing snapshot at step %d: %v", session.SessionID, step, err)
-			a.submitCrawlError(session.SessionID, fmt.Sprintf("snapshot capture failed at step %d: %v", step, err))
+			a.submitCrawlError(ctx, session.SessionID, fmt.Sprintf("snapshot capture failed at step %d: %v", step, err))
 			return
 		}
 
 		// Send snapshot to server and get next action
-		action, err := a.submitSnapshot(session.SessionID, snapshot)
+		action, err := a.submitSnapshot(ctx, session.SessionID, snapshot)
 		if err != nil {
 			log.Printf("CRAWL [%s] ERROR submitting snapshot at step %d: %v", session.SessionID, step, err)
-			a.submitCrawlError(session.SessionID, fmt.Sprintf("snapshot submission failed at step %d: %v", step, err))
+			a.submitCrawlError(ctx, session.SessionID, fmt.Sprintf("snapshot submission failed at step %d: %v", step, err))
 			return
 		}
 
@@ -318,16 +304,16 @@ func (a *Agent) captureSnapshot(ctx context.Context, session CrawlSession, stepN
 }
 
 // submitSnapshot sends a snapshot to the server and returns the next action.
-func (a *Agent) submitSnapshot(sessionID string, snapshot *CrawlSnapshot) (*CrawlAction, error) {
+func (a *Agent) submitSnapshot(ctx context.Context, sessionID string, snapshot *CrawlSnapshot) (*CrawlAction, error) {
 	url := fmt.Sprintf("%s/api/agent/%s/crawl/%s/snapshot", a.CloudURL, a.AgentID, sessionID)
 
-	resp, body, err := a.doJSONWithRetry("POST", url, snapshot, a.authHeaders(), 60*time.Second)
+	status, body, err := a.doJSONWithRetry(ctx, "POST", url, snapshot, a.authHeaders(), 60*time.Second)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("submit snapshot failed: %d - %s", resp.StatusCode, string(body))
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("submit snapshot failed: %d - %s", status, string(body))
 	}
 
 	var action CrawlAction
@@ -339,17 +325,17 @@ func (a *Agent) submitSnapshot(sessionID string, snapshot *CrawlSnapshot) (*Craw
 }
 
 // submitCrawlError reports a crawl error to the server.
-func (a *Agent) submitCrawlError(sessionID, errorMsg string) {
+func (a *Agent) submitCrawlError(ctx context.Context, sessionID, errorMsg string) {
 	url := fmt.Sprintf("%s/api/agent/%s/crawl/%s/error", a.CloudURL, a.AgentID, sessionID)
 	payload := map[string]string{"error": errorMsg}
 
-	resp, _, err := a.doJSONWithRetry("POST", url, payload, a.authHeaders(), 10*time.Second)
+	status, _, err := a.doJSONWithRetry(ctx, "POST", url, payload, a.authHeaders(), 10*time.Second)
 	if err != nil {
 		log.Printf("CRAWL [%s] ERROR reporting crawl error: %v", sessionID, err)
 		return
 	}
-	if resp.StatusCode != http.StatusOK {
-		log.Printf("CRAWL [%s] ERROR crawl error report failed: %d", sessionID, resp.StatusCode)
+	if status != http.StatusOK {
+		log.Printf("CRAWL [%s] ERROR crawl error report failed: %d", sessionID, status)
 	}
 }
 

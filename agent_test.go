@@ -44,9 +44,6 @@ func TestNewAgent(t *testing.T) {
 	if a.Capabilities == nil {
 		t.Error("Capabilities should not be nil")
 	}
-	if a.client == nil {
-		t.Error("client should not be nil")
-	}
 }
 
 func TestNewAgent_EmptyValues(t *testing.T) {
@@ -173,12 +170,12 @@ func TestDoJSON_GET(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	resp, body, err := a.doJSON("GET", server.URL+"/test", nil, nil)
+	status, body, err := a.doJSON(context.Background(), "GET", server.URL+"/test", nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.StatusCode != 200 {
-		t.Errorf("expected 200, got %d", resp.StatusCode)
+	if status != 200 {
+		t.Errorf("expected 200, got %d", status)
 	}
 	if string(body) != `{"status":"ok"}` {
 		t.Errorf("unexpected body: %s", body)
@@ -198,12 +195,12 @@ func TestDoJSON_POST_WithBody(t *testing.T) {
 
 	a := newTestAgent(server.URL)
 	payload := map[string]string{"name": "test"}
-	resp, body, err := a.doJSON("POST", server.URL+"/create", payload, nil)
+	status, body, err := a.doJSON(context.Background(), "POST", server.URL+"/create", payload, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.StatusCode != 200 {
-		t.Errorf("expected 200, got %d", resp.StatusCode)
+	if status != 200 {
+		t.Errorf("expected 200, got %d", status)
 	}
 	if receivedContentType != "application/json" {
 		t.Errorf("Content-Type: got %q", receivedContentType)
@@ -229,7 +226,7 @@ func TestDoJSON_WithHeaders(t *testing.T) {
 		"X-Agent-API-Key": "my-key",
 		"X-Custom":        "value123",
 	}
-	_, _, err := a.doJSON("GET", server.URL+"/test", nil, headers)
+	_, _, err := a.doJSON(context.Background(), "GET", server.URL+"/test", nil, headers)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -243,7 +240,7 @@ func TestDoJSON_WithHeaders(t *testing.T) {
 
 func TestDoJSON_ConnectionError(t *testing.T) {
 	a := newTestAgent("http://127.0.0.1:1") // invalid port
-	_, _, err := a.doJSON("GET", "http://127.0.0.1:1/test", nil, nil)
+	_, _, err := a.doJSON(context.Background(), "GET", "http://127.0.0.1:1/test", nil, nil)
 	if err == nil {
 		t.Error("expected error for connection failure")
 	}
@@ -287,7 +284,7 @@ func TestRegister_Success(t *testing.T) {
 		callbackAPIKey = apiKey
 	}
 
-	err := a.Register()
+	err := a.Register(context.Background())
 	if err != nil {
 		t.Fatalf("Register failed: %v", err)
 	}
@@ -327,7 +324,7 @@ func TestRegister_Failure(t *testing.T) {
 	defer server.Close()
 
 	a := NewAgent(server.URL, "", "", "bad-secret", 5*time.Second, 60*time.Second)
-	err := a.Register()
+	err := a.Register(context.Background())
 	if err == nil {
 		t.Fatal("expected error for 403 response")
 	}
@@ -348,7 +345,7 @@ func TestRegister_NoCallback(t *testing.T) {
 
 	a := NewAgent(server.URL, "", "", "", 5*time.Second, 60*time.Second)
 	// OnRegistered is nil — should not panic
-	err := a.Register()
+	err := a.Register(context.Background())
 	if err != nil {
 		t.Fatalf("Register failed: %v", err)
 	}
@@ -368,7 +365,7 @@ func TestSendHeartbeat_Success(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	err := a.SendHeartbeat()
+	err := a.SendHeartbeat(context.Background())
 	if err != nil {
 		t.Fatalf("SendHeartbeat failed: %v", err)
 	}
@@ -390,7 +387,7 @@ func TestSendHeartbeat_BusyStatus(t *testing.T) {
 	a.activeTests.Store("test-1", true)
 	defer a.activeTests.Delete("test-1")
 
-	err := a.SendHeartbeat()
+	err := a.SendHeartbeat(context.Background())
 	if err != nil {
 		t.Fatalf("SendHeartbeat failed: %v", err)
 	}
@@ -403,9 +400,8 @@ func TestSendHeartbeat_BusyStatus(t *testing.T) {
 func TestSendHeartbeat_NotRegistered(t *testing.T) {
 	a := &Agent{
 		CloudURL: "http://localhost",
-		client:   &http.Client{Timeout: 5 * time.Second},
 	}
-	err := a.SendHeartbeat()
+	err := a.SendHeartbeat(context.Background())
 	if err == nil {
 		t.Error("expected error when not registered")
 	}
@@ -421,7 +417,7 @@ func TestSendHeartbeat_ServerError(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	err := a.SendHeartbeat()
+	err := a.SendHeartbeat(context.Background())
 	if err == nil {
 		t.Error("expected error for 500 response")
 	}
@@ -436,7 +432,7 @@ func TestSendHeartbeat_IncludesSystemMetrics(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	err := a.SendHeartbeat()
+	err := a.SendHeartbeat(context.Background())
 	if err != nil {
 		t.Fatalf("SendHeartbeat failed: %v", err)
 	}
@@ -471,7 +467,7 @@ func TestPollAssignments_Success(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	assignments, err := a.PollAssignments()
+	assignments, err := a.PollAssignments(context.Background())
 	if err != nil {
 		t.Fatalf("PollAssignments failed: %v", err)
 	}
@@ -491,7 +487,7 @@ func TestPollAssignments_Empty(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	assignments, err := a.PollAssignments()
+	assignments, err := a.PollAssignments(context.Background())
 	if err != nil {
 		t.Fatalf("PollAssignments failed: %v", err)
 	}
@@ -505,9 +501,8 @@ func TestPollAssignments_NotRegistered(t *testing.T) {
 		CloudURL: "http://localhost",
 		APIKey:   "",
 		AgentID:  "",
-		client:   &http.Client{Timeout: 5 * time.Second},
 	}
-	assignments, err := a.PollAssignments()
+	assignments, err := a.PollAssignments(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -523,7 +518,7 @@ func TestPollAssignments_ServerError(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	_, err := a.PollAssignments()
+	_, err := a.PollAssignments(context.Background())
 	if err == nil {
 		t.Error("expected error for 500 response")
 	}
@@ -544,7 +539,7 @@ func TestFetchScriptCode_Success(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	code, err := a.fetchScriptCode("script-42")
+	code, err := a.fetchScriptCode(context.Background(), "script-42")
 	if err != nil {
 		t.Fatalf("fetchScriptCode failed: %v", err)
 	}
@@ -561,7 +556,7 @@ func TestFetchScriptCode_NotFound(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	_, err := a.fetchScriptCode("nonexistent")
+	_, err := a.fetchScriptCode(context.Background(), "nonexistent")
 	if err == nil {
 		t.Error("expected error for 404 response")
 	}
@@ -672,7 +667,7 @@ func TestUpdateAssignmentStatus_Success(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	a.updateAssignmentStatus("assign-1", "started")
+	a.updateAssignmentStatus(context.Background(), "assign-1", "started")
 
 	expectedPath := fmt.Sprintf("/api/agent/%s/assignments/assign-1/status", a.AgentID)
 	if receivedPath != expectedPath {
@@ -686,10 +681,9 @@ func TestUpdateAssignmentStatus_Success(t *testing.T) {
 func TestUpdateAssignmentStatus_NotRegistered(t *testing.T) {
 	a := &Agent{
 		CloudURL: "http://localhost",
-		client:   &http.Client{Timeout: 5 * time.Second},
 	}
 	// Should not panic when not registered
-	a.updateAssignmentStatus("assign-1", "started")
+	a.updateAssignmentStatus(context.Background(), "assign-1", "started")
 }
 
 // --- reportResult tests ---
@@ -718,7 +712,7 @@ func TestReportResult_Success(t *testing.T) {
 		"errors":    "",
 		"artifacts": nil,
 	}
-	a.reportResult("assign-1", true, "test passed", resultData)
+	a.reportResult(context.Background(), "assign-1", true, "test passed", resultData)
 
 	if atomic.LoadInt32(&resultCalls) != 1 {
 		t.Error("expected result endpoint to be called once")
@@ -741,7 +735,7 @@ func TestReportResult_Failure(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	a.reportResult("assign-1", false, "test failed", nil)
+	a.reportResult(context.Background(), "assign-1", false, "test failed", nil)
 
 	if receivedStatus != "failed" {
 		t.Errorf("expected 'failed' status, got %q", receivedStatus)
@@ -751,10 +745,9 @@ func TestReportResult_Failure(t *testing.T) {
 func TestReportResult_NotRegistered(t *testing.T) {
 	a := &Agent{
 		CloudURL: "http://localhost",
-		client:   &http.Client{Timeout: 5 * time.Second},
 	}
 	// Should not panic
-	a.reportResult("assign-1", true, "ok", nil)
+	a.reportResult(context.Background(), "assign-1", true, "ok", nil)
 }
 
 // --- runCommand tests ---
@@ -1298,21 +1291,17 @@ func TestAssignmentDefaults(t *testing.T) {
 // --- doJSON error path tests ---
 
 func TestDoJSON_InvalidURL(t *testing.T) {
-	a := &Agent{
-		client: &http.Client{Timeout: 1 * time.Second},
-	}
-	_, _, err := a.doJSON("GET", "://invalid-url", nil, nil)
+	a := &Agent{}
+	_, _, err := a.doJSON(context.Background(), "GET", "://invalid-url", nil, nil)
 	if err == nil {
 		t.Error("expected error for invalid URL")
 	}
 }
 
 func TestDoJSON_MarshalError(t *testing.T) {
-	a := &Agent{
-		client: &http.Client{Timeout: 1 * time.Second},
-	}
+	a := &Agent{}
 	// A channel can't be marshaled to JSON
-	_, _, err := a.doJSON("POST", "http://localhost/test", make(chan int), nil)
+	_, _, err := a.doJSON(context.Background(), "POST", "http://localhost/test", make(chan int), nil)
 	if err == nil {
 		t.Error("expected error for unmarshalable body")
 	}
@@ -1328,7 +1317,7 @@ func TestRegister_InvalidJSONResponse(t *testing.T) {
 	defer server.Close()
 
 	a := NewAgent(server.URL, "", "", "", 5*time.Second, 60*time.Second)
-	err := a.Register()
+	err := a.Register(context.Background())
 	if err == nil {
 		t.Error("expected error for invalid JSON response")
 	}
@@ -1344,7 +1333,7 @@ func TestPollAssignments_InvalidJSON(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	_, err := a.PollAssignments()
+	_, err := a.PollAssignments(context.Background())
 	if err == nil {
 		t.Error("expected error for invalid JSON")
 	}
@@ -1363,7 +1352,7 @@ func TestFetchScriptCode_NoCodeField(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	code, err := a.fetchScriptCode("script-1")
+	code, err := a.fetchScriptCode(context.Background(), "script-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1382,7 +1371,7 @@ func TestUpdateAssignmentStatus_ServerError(t *testing.T) {
 
 	a := newTestAgent(server.URL)
 	// Should not panic, just logs
-	a.updateAssignmentStatus("assign-1", "failed")
+	a.updateAssignmentStatus(context.Background(), "assign-1", "failed")
 }
 
 // --- reportResult server error path ---
@@ -1396,7 +1385,7 @@ func TestReportResult_ServerError(t *testing.T) {
 
 	a := newTestAgent(server.URL)
 	// Should not panic
-	a.reportResult("assign-1", true, "ok", map[string]interface{}{
+	a.reportResult(context.Background(), "assign-1", true, "ok", map[string]interface{}{
 		"output":    "stdout",
 		"errors":    "stderr",
 		"artifacts": map[string]interface{}{},
@@ -1418,7 +1407,11 @@ func TestHeartbeatLoop_ConsecutiveFailures(t *testing.T) {
 	a.HeartbeatInterval = 10 * time.Millisecond
 	a.running = true
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	// Generous timeout: each heartbeat attempt collects system metrics via a
+	// blocking OS command (e.g. `top` on macOS), which alone can take ~2s, so a
+	// tight ctx timeout can expire before the first attempt ever reaches the
+	// network and leave heartbeats at 0.
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 
 	a.heartbeatLoop(ctx)

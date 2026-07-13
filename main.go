@@ -4,9 +4,16 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	receipt "github.com/Quality-Max/qmax-receipt"
+	"github.com/Quality-Max/qmax-local-agent/policy"
 )
 
 func main() {
+	// Stamp the agent version into every Exposure Receipt and apply egress config.
+	receipt.AgentVersion = Version
+	configureEgressFromEnv()
+
 	if len(os.Args) < 2 {
 		printUsage()
 		os.Exit(1)
@@ -14,6 +21,53 @@ func main() {
 
 	cmd := os.Args[1]
 
+	// `run` (daemon) and `receipt` manage their own receipts; help/version do no
+	// egress. Every other command is wrapped in a CLI Exposure Receipt below.
+	switch cmd {
+	case "run", "receipt", "help", "--help", "-h", "version", "--version", "-v":
+		dispatch(cmd)
+		return
+	}
+
+	rec := receipt.NewCurrent("cli:" + cmd)
+	defer finalizeCLIReceipt(rec)
+	dispatch(cmd)
+}
+
+// configureEgressFromEnv applies the egress guard mode from the environment.
+// Env (not flags) so it composes with each command's own flag parser and works
+// cleanly in CI: QMAX_STRICT_EGRESS=1, QMAX_ALLOW_AUTH_CAPTURE=1.
+func configureEgressFromEnv() {
+	if isTruthy(os.Getenv("QMAX_STRICT_EGRESS")) {
+		policy.SetMode(policy.ModeStrict)
+	}
+	if isTruthy(os.Getenv("QMAX_ALLOW_AUTH_CAPTURE")) {
+		policy.SetAllowAuthCapture(true)
+	}
+}
+
+func isTruthy(s string) bool {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
+}
+
+// finalizeCLIReceipt writes the receipt only if the command actually egressed,
+// keeping the receipts directory free of empty manifests.
+func finalizeCLIReceipt(r *receipt.Receipt) {
+	if r.EntryCount() == 0 {
+		return
+	}
+	if path, err := r.Finalize(); err != nil {
+		fmt.Fprintf(os.Stderr, "WARN: failed to write exposure receipt: %v\n", err)
+	} else {
+		fmt.Fprintf(os.Stderr, "Exposure receipt: %s\n", path)
+	}
+}
+
+func dispatch(cmd string) {
 	switch cmd {
 	case "run":
 		cmdRun(os.Args[2:])
@@ -43,6 +97,10 @@ func main() {
 		cmdSast(os.Args[2:])
 	case "ci":
 		cmdCI(os.Args[2:])
+	case "skill-feedback":
+		cmdSkillFeedback(os.Args[2:])
+	case "receipt":
+		cmdReceipt(os.Args[2:])
 	case "help", "--help", "-h":
 		printUsage()
 	case "version", "--version", "-v":
@@ -81,6 +139,12 @@ Commands:
   logout     Remove saved credentials
   sast       SAST security scanning (verify, install, scan, setup)
   ci         Headless CI runner (auth + run + report for GitHub Actions)
+  skill-feedback  Report on a QualityMax battle skill (.claude/skills/*-qm/)
+  receipt    Inspect Exposure Receipts (list, show, verify) — what left your network
+
+Egress guard (env):
+  QMAX_STRICT_EGRESS=1        Block any request not on the egress allow-list
+  QMAX_ALLOW_AUTH_CAPTURE=1   Permit cookie/localStorage upload (off by default)
 
 Flags:
   --help     Show this help message

@@ -25,10 +25,13 @@ jobs:
       - name: Build all targets
         run: |
           mkdir -p build
-          GOOS=darwin  GOARCH=amd64 go build -ldflags="-s -w" -o build/qmax-darwin-amd64 .
-          GOOS=darwin  GOARCH=arm64 go build -ldflags="-s -w" -o build/qmax-darwin-arm64 .
-          GOOS=linux   GOARCH=amd64 go build -ldflags="-s -w" -o build/qmax-linux-amd64 .
-          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o build/qmax-windows-amd64.exe .
+          # Stamp the source SHA into the receipt (agent_build_sha), matching the Makefile.
+          SHA="$(git rev-parse --short HEAD)"
+          LDFLAGS="-s -w -X github.com/Quality-Max/qmax-receipt.BuildSHA=$SHA"
+          GOOS=darwin  GOARCH=amd64 go build -ldflags="$LDFLAGS" -o build/qmax-darwin-amd64 .
+          GOOS=darwin  GOARCH=arm64 go build -ldflags="$LDFLAGS" -o build/qmax-darwin-arm64 .
+          GOOS=linux   GOARCH=amd64 go build -ldflags="$LDFLAGS" -o build/qmax-linux-amd64 .
+          GOOS=windows GOARCH=amd64 go build -ldflags="$LDFLAGS" -o build/qmax-windows-amd64.exe .
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

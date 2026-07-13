@@ -4,10 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
-	"time"
 )
 
 func cmdProjects(args []string) {
@@ -22,34 +19,7 @@ func cmdProjects(args []string) {
 	}
 
 	apiURL := cfg.GetAPIBaseURL()
-	client := &http.Client{Timeout: 30 * time.Second}
-
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/projects", apiURL), nil)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", cfg.Token))
-
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024*1024))
-		fmt.Fprintf(os.Stderr, "Error: %d - %s\n", resp.StatusCode, string(body))
-		os.Exit(1)
-	}
-
-	const maxBody = 10 * 1024 * 1024 // 10MB
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading response: %v\n", err)
-		os.Exit(1)
-	}
+	body := authGet(cfg, fmt.Sprintf("%s/api/projects", apiURL))
 
 	if *jsonOut {
 		fmt.Println(string(body))

@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -18,6 +17,8 @@ import (
 	"sync"
 	"time"
 
+	receipt "github.com/Quality-Max/qmax-receipt"
+	"github.com/Quality-Max/qmax-local-agent/httpx"
 	"github.com/Quality-Max/qmax-local-agent/sysmetrics"
 )
 
@@ -41,7 +42,6 @@ type Agent struct {
 	Capabilities       map[string]interface{}
 	OnRegistered       OnRegistered
 
-	client      *http.Client
 	activeTests sync.Map
 	activeCount int
 	mu          sync.Mutex
@@ -57,9 +57,6 @@ func NewAgent(cloudURL, apiKey, agentID, registrationSecret string, pollInterval
 		RegistrationSecret: registrationSecret,
 		PollInterval:       pollInterval,
 		HeartbeatInterval:  heartbeatInterval,
-		client: &http.Client{
-			Timeout: 60 * time.Second,
-		},
 	}
 	a.MachineID = a.getMachineID()
 	a.Capabilities = a.detectCapabilities()
@@ -176,40 +173,12 @@ func commandExists(name string) bool {
 
 // --- HTTP helpers ---
 
-func (a *Agent) doJSON(method, url string, body interface{}, headers map[string]string) (*http.Response, []byte, error) {
-	var reqBody io.Reader
-	if body != nil {
-		data, err := json.Marshal(body)
-		if err != nil {
-			return nil, nil, fmt.Errorf("marshal request: %w", err)
-		}
-		reqBody = bytes.NewReader(data)
-	}
-
-	req, err := http.NewRequest(method, url, reqBody)
-	if err != nil {
-		return nil, nil, fmt.Errorf("create request: %w", err)
-	}
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-
-	resp, err := a.client.Do(req)
-	if err != nil {
-		return nil, nil, fmt.Errorf("do request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Limit response body to 50MB to prevent memory exhaustion
-	const maxResponseBody = 50 * 1024 * 1024
-	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBody))
-	if err != nil {
-		return resp, nil, fmt.Errorf("read response: %w", err)
-	}
-	return resp, respBody, nil
+// doJSON sends a JSON request through the httpx egress chokepoint (so it is
+// recorded in the active Exposure Receipt) and returns the status code and body.
+// ctx routes the receipt — daemon callers pass the per-run context from
+// receipt.Begin so concurrent assignments record into their own receipts.
+func (a *Agent) doJSON(ctx context.Context, method, url string, body interface{}, headers map[string]string) (int, []byte, error) {
+	return httpx.DoJSON(ctx, method, url, body, headers, 60*time.Second)
 }
 
 func (a *Agent) authHeaders() map[string]string {
@@ -221,24 +190,24 @@ func (a *Agent) authHeaders() map[string]string {
 // --- Registration ---
 
 // Register registers the agent with the cloud server.
-func (a *Agent) Register() error {
+func (a *Agent) Register(ctx context.Context) error {
 	url := fmt.Sprintf("%s/api/agent/register", a.CloudURL)
 	payload := map[string]interface{}{
 		"name":                fmt.Sprintf("%s (%s)", AgentName, a.MachineID),
-		"machine_id":         a.MachineID,
-		"capabilities":       a.Capabilities,
-		"version":            Version,
-		"api_key":            a.APIKey,
+		"machine_id":          a.MachineID,
+		"capabilities":        a.Capabilities,
+		"version":             Version,
+		"api_key":             a.APIKey,
 		"registration_secret": a.RegistrationSecret,
 	}
 
-	resp, body, err := a.doJSON("POST", url, payload, nil)
+	status, body, err := a.doJSON(ctx, "POST", url, payload, nil)
 	if err != nil {
 		return fmt.Errorf("registration request failed: %w", err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("registration failed: %d - %s", resp.StatusCode, string(body))
+	if status != http.StatusOK {
+		return fmt.Errorf("registration failed: %d - %s", status, string(body))
 	}
 
 	var data map[string]interface{}
@@ -265,7 +234,7 @@ func (a *Agent) Register() error {
 // --- Heartbeat ---
 
 // SendHeartbeat sends a heartbeat to the cloud server.
-func (a *Agent) SendHeartbeat() error {
+func (a *Agent) SendHeartbeat(ctx context.Context) error {
 	if a.AgentID == "" || a.APIKey == "" {
 		return fmt.Errorf("agent not registered")
 	}
@@ -293,12 +262,12 @@ func (a *Agent) SendHeartbeat() error {
 		payload["system_metrics"] = metrics
 	}
 
-	resp, _, err := a.doJSON("POST", url, payload, a.authHeaders())
+	code, _, err := a.doJSON(ctx, "POST", url, payload, a.authHeaders())
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("heartbeat failed: %d", resp.StatusCode)
+	if code != http.StatusOK {
+		return fmt.Errorf("heartbeat failed: %d", code)
 	}
 	return nil
 }
@@ -320,19 +289,19 @@ type Assignment struct {
 }
 
 // PollAssignments fetches pending assignments from the server.
-func (a *Agent) PollAssignments() ([]Assignment, error) {
+func (a *Agent) PollAssignments(ctx context.Context) ([]Assignment, error) {
 	if a.AgentID == "" || a.APIKey == "" {
 		return nil, nil
 	}
 
 	url := fmt.Sprintf("%s/api/agent/%s/assignments/pending", a.CloudURL, a.AgentID)
-	resp, body, err := a.doJSON("GET", url, nil, a.authHeaders())
+	status, body, err := a.doJSON(ctx, "GET", url, nil, a.authHeaders())
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("poll assignments failed: %d", resp.StatusCode)
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("poll assignments failed: %d", status)
 	}
 
 	var data struct {
@@ -355,6 +324,16 @@ func (a *Agent) ExecuteTest(ctx context.Context, assignment Assignment) {
 		log.Printf("ERROR: Assignment has empty ID, skipping")
 		return
 	}
+	// Per-assignment Exposure Receipt: concurrent assignments each get their own,
+	// routed via ctx so their egress never interleaves in one manifest.
+	ctx, rec := receipt.Begin(ctx, "daemon:assignment")
+	defer func() {
+		if path, err := rec.Finalize(); err != nil {
+			log.Printf("WARN: failed to finalize exposure receipt for assignment %s: %v", assignmentID, err)
+		} else {
+			log.Printf("Exposure receipt written: %s", path)
+		}
+	}()
 	// Clean up active test tracking on all exit paths
 	defer func() {
 		a.activeTests.Delete(assignmentID)
@@ -381,7 +360,7 @@ func (a *Agent) ExecuteTest(ctx context.Context, assignment Assignment) {
 		assignmentID, browser, headless, vpWidth, vpHeight)
 
 	if testCode == "" && scriptID != "" && scriptID != "<nil>" {
-		code, err := a.fetchScriptCode(scriptID)
+		code, err := a.fetchScriptCode(ctx, scriptID)
 		if err != nil {
 			log.Printf("WARN: Failed to fetch script code: %v", err)
 		} else {
@@ -391,7 +370,7 @@ func (a *Agent) ExecuteTest(ctx context.Context, assignment Assignment) {
 
 	if testCode == "" {
 		log.Printf("ERROR: Assignment %s has no test code", assignmentID)
-		a.reportResult(assignmentID, false, "No test code provided", nil)
+		a.reportResult(ctx, assignmentID, false, "No test code provided", nil)
 		return
 	}
 
@@ -399,16 +378,16 @@ func (a *Agent) ExecuteTest(ctx context.Context, assignment Assignment) {
 
 	testDir, err := os.MkdirTemp("", fmt.Sprintf("qmax-%s-", assignmentID))
 	if err != nil {
-		a.reportResult(assignmentID, false, fmt.Sprintf("Failed to create temp dir: %v", err), nil)
+		a.reportResult(ctx, assignmentID, false, fmt.Sprintf("Failed to create temp dir: %v", err), nil)
 		return
 	}
 	defer os.RemoveAll(testDir)
 
-	a.updateAssignmentStatus(assignmentID, "started")
+	a.updateAssignmentStatus(ctx, assignmentID, "started")
 
 	testFile := filepath.Join(testDir, "test.spec.js")
 	if err := os.WriteFile(testFile, []byte(testCode), 0644); err != nil {
-		a.reportResult(assignmentID, false, fmt.Sprintf("Failed to write test file: %v", err), nil)
+		a.reportResult(ctx, assignmentID, false, fmt.Sprintf("Failed to write test file: %v", err), nil)
 		return
 	}
 
@@ -424,7 +403,7 @@ func (a *Agent) ExecuteTest(ctx context.Context, assignment Assignment) {
 	}
 	pkgData, _ := json.MarshalIndent(packageJSON, "", "  ")
 	if err := os.WriteFile(filepath.Join(testDir, "package.json"), pkgData, 0644); err != nil {
-		a.reportResult(assignmentID, false, fmt.Sprintf("Failed to write package.json: %v", err), nil)
+		a.reportResult(ctx, assignmentID, false, fmt.Sprintf("Failed to write package.json: %v", err), nil)
 		return
 	}
 
@@ -476,7 +455,7 @@ module.exports = defineConfig({
 
 	configPath := filepath.Join(testDir, "playwright.config.js")
 	if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
-		a.reportResult(assignmentID, false, fmt.Sprintf("Failed to write config: %v", err), nil)
+		a.reportResult(ctx, assignmentID, false, fmt.Sprintf("Failed to write config: %v", err), nil)
 		return
 	}
 
@@ -484,7 +463,7 @@ module.exports = defineConfig({
 
 	log.Printf("Installing dependencies for assignment %s", assignmentID)
 	if err := a.runCommand(ctx, testDir, "npm", "install", 300*time.Second); err != nil {
-		a.reportResult(assignmentID, false, fmt.Sprintf("Dependency installation failed: %v", err), nil)
+		a.reportResult(ctx, assignmentID, false, fmt.Sprintf("Dependency installation failed: %v", err), nil)
 		return
 	}
 
@@ -530,7 +509,7 @@ module.exports = defineConfig({
 		"artifacts": artifacts,
 	}
 
-	a.reportResult(assignmentID, success, stdout.String(), resultData)
+	a.reportResult(ctx, assignmentID, success, stdout.String(), resultData)
 }
 
 func (a *Agent) runCommand(ctx context.Context, dir, name, argsStr string, timeout time.Duration) error {
@@ -547,14 +526,14 @@ func (a *Agent) runCommand(ctx context.Context, dir, name, argsStr string, timeo
 	return nil
 }
 
-func (a *Agent) fetchScriptCode(scriptID string) (string, error) {
+func (a *Agent) fetchScriptCode(ctx context.Context, scriptID string) (string, error) {
 	url := fmt.Sprintf("%s/api/automation/scripts/%s", a.CloudURL, scriptID)
-	resp, body, err := a.doJSON("GET", url, nil, a.authHeaders())
+	status, body, err := a.doJSON(ctx, "GET", url, nil, a.authHeaders())
 	if err != nil {
 		return "", err
 	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("fetch script failed: %d", resp.StatusCode)
+	if status != http.StatusOK {
+		return "", fmt.Errorf("fetch script failed: %d", status)
 	}
 
 	var data map[string]interface{}
@@ -621,7 +600,7 @@ func (a *Agent) collectArtifacts(testDir string) map[string]interface{} {
 
 // --- Status/result reporting ---
 
-func (a *Agent) updateAssignmentStatus(assignmentID, status string) {
+func (a *Agent) updateAssignmentStatus(ctx context.Context, assignmentID, status string) {
 	if a.AgentID == "" || a.APIKey == "" {
 		return
 	}
@@ -629,17 +608,17 @@ func (a *Agent) updateAssignmentStatus(assignmentID, status string) {
 	url := fmt.Sprintf("%s/api/agent/%s/assignments/%s/status", a.CloudURL, a.AgentID, assignmentID)
 	payload := map[string]string{"status": status}
 
-	resp, _, err := a.doJSON("POST", url, payload, a.authHeaders())
+	respStatus, _, err := a.doJSON(ctx, "POST", url, payload, a.authHeaders())
 	if err != nil {
 		log.Printf("ERROR: updating assignment status: %v", err)
 		return
 	}
-	if resp.StatusCode != http.StatusOK {
-		log.Printf("ERROR: assignment status update failed: %d", resp.StatusCode)
+	if respStatus != http.StatusOK {
+		log.Printf("ERROR: assignment status update failed: %d", respStatus)
 	}
 }
 
-func (a *Agent) reportResult(assignmentID string, success bool, message string, resultData map[string]interface{}) {
+func (a *Agent) reportResult(ctx context.Context, assignmentID string, success bool, message string, resultData map[string]interface{}) {
 	if a.AgentID == "" || a.APIKey == "" {
 		return
 	}
@@ -667,21 +646,21 @@ func (a *Agent) reportResult(assignmentID string, success bool, message string, 
 		"artifacts": artifacts,
 	}
 
-	resp, body, err := a.doJSON("POST", url, payload, a.authHeaders())
+	respStatus, body, err := a.doJSON(ctx, "POST", url, payload, a.authHeaders())
 	if err != nil {
 		log.Printf("ERROR: reporting result: %v", err)
 		return
 	}
 
-	if resp.StatusCode == http.StatusOK {
+	if respStatus == http.StatusOK {
 		finalStatus := "completed"
 		if !success {
 			finalStatus = "failed"
 		}
-		a.updateAssignmentStatus(assignmentID, finalStatus)
+		a.updateAssignmentStatus(ctx, assignmentID, finalStatus)
 		log.Printf("Result reported for assignment %s: %s", assignmentID, finalStatus)
 	} else {
-		log.Printf("ERROR: failed to report result: %d - %s", resp.StatusCode, string(body))
+		log.Printf("ERROR: failed to report result: %d - %s", respStatus, string(body))
 	}
 }
 
@@ -694,7 +673,19 @@ func (a *Agent) Run(ctx context.Context) error {
 	capsJSON, _ := json.MarshalIndent(a.Capabilities, "", "  ")
 	log.Printf("Capabilities: %s", string(capsJSON))
 
-	if err := a.Register(); err != nil {
+	// Control-plane Exposure Receipt for the daemon process: register, heartbeat
+	// and polls record here. Per-assignment/crawl work opens its own receipt via
+	// receipt.Begin, which takes precedence through context.
+	controlRec := receipt.NewCurrent("daemon:control")
+	defer func() {
+		if path, err := controlRec.Finalize(); err != nil {
+			log.Printf("WARN: failed to finalize daemon control receipt: %v", err)
+		} else {
+			log.Printf("Daemon control exposure receipt written: %s", path)
+		}
+	}()
+
+	if err := a.Register(ctx); err != nil {
 		return fmt.Errorf("failed to register agent: %w", err)
 	}
 
@@ -717,7 +708,7 @@ func (a *Agent) Run(ctx context.Context) error {
 			a.waitForActiveTests()
 			return nil
 		case <-ticker.C:
-			assignments, err := a.PollAssignments()
+			assignments, err := a.PollAssignments(ctx)
 			if err != nil {
 				if os.IsTimeout(err) || strings.Contains(err.Error(), "deadline exceeded") || strings.Contains(err.Error(), "Timeout") {
 					log.Printf("WARN: polling timed out, will retry next cycle")
@@ -742,7 +733,7 @@ func (a *Agent) Run(ctx context.Context) error {
 			}
 
 			// Poll for crawl sessions
-			crawlSession, crawlErr := a.PollCrawlSessions()
+			crawlSession, crawlErr := a.PollCrawlSessions(ctx)
 			if crawlErr != nil {
 				log.Printf("WARN: polling crawl sessions: %v", crawlErr)
 			} else if crawlSession != nil {
@@ -801,7 +792,7 @@ func (a *Agent) heartbeatLoop(ctx context.Context) {
 			return
 		}
 
-		if err := a.SendHeartbeat(); err != nil {
+		if err := a.SendHeartbeat(ctx); err != nil {
 			consecutiveFailures++
 			if consecutiveFailures >= 5 {
 				log.Printf("ERROR: Heartbeat failed %d times consecutively", consecutiveFailures)

@@ -3,6 +3,7 @@ module github.com/Quality-Max/qmax-local-agent
 go 1.23
 
 require (
+	github.com/Quality-Max/qmax-receipt v0.1.0
 	github.com/chromedp/cdproto v0.0.0-20241022234722-4d5d5faf59fb
 	github.com/chromedp/chromedp v0.11.2
 )

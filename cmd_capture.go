@@ -1,12 +1,10 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -15,6 +13,8 @@ import (
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/storage"
 	"github.com/chromedp/chromedp"
+
+	"github.com/Quality-Max/qmax-local-agent/httpx"
 )
 
 func cmdCapture(args []string) {
@@ -130,7 +130,9 @@ func cmdCapture(args []string) {
 
 	// Parse localStorage entries
 	var localStorageEntries []map[string]string
-	_ = json.Unmarshal([]byte(localStorageJSON), &localStorageEntries)
+	if err := json.Unmarshal([]byte(localStorageJSON), &localStorageEntries); err != nil {
+		fmt.Fprintf(os.Stderr, "WARN: could not parse localStorage entries: %v\n", err)
+	}
 	if len(localStorageEntries) > 0 {
 		fmt.Printf("Captured %d localStorage entries\n", len(localStorageEntries))
 	}
@@ -175,7 +177,7 @@ type playwrightCookie struct {
 }
 
 type playwrightStorageState struct {
-	Cookies []playwrightCookie   `json:"cookies"`
+	Cookies []playwrightCookie       `json:"cookies"`
 	Origins []map[string]interface{} `json:"origins"`
 }
 
@@ -227,11 +229,10 @@ func buildPlaywrightStorageState(cookies []*network.Cookie, originURL string, lo
 
 func uploadAuthData(cfg *Config, projectID, fieldName, storageStateJSON string) error {
 	apiURL := cfg.GetAPIBaseURL()
-	client := &http.Client{Timeout: 30 * time.Second}
-	authHeader := fmt.Sprintf("Bearer %s", cfg.Token)
+	headers := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", cfg.Token)}
 
 	// Step 1: Find or create "Authentication" category
-	catID, err := findOrCreateAuthCategory(client, apiURL, projectID, authHeader)
+	catID, err := findOrCreateAuthCategory(apiURL, projectID, headers)
 	if err != nil {
 		return fmt.Errorf("category setup: %w", err)
 	}
@@ -244,54 +245,26 @@ func uploadAuthData(cfg *Config, projectID, fieldName, storageStateJSON string) 
 		"is_secret": true,
 	}
 
-	body, err := json.Marshal(fieldPayload)
-	if err != nil {
-		return err
-	}
-
-	req, err := http.NewRequest("POST", fieldURL, bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", authHeader)
-
-	resp, err := client.Do(req)
+	status, respBody, err := httpx.DoJSON(context.Background(), "POST", fieldURL, fieldPayload, headers, 30*time.Second)
 	if err != nil {
 		return fmt.Errorf("create field request: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024*1024))
-		return fmt.Errorf("create field failed: %d - %s", resp.StatusCode, string(respBody))
+	if status != http.StatusOK && status != http.StatusCreated {
+		return fmt.Errorf("create field failed: %d - %s", status, string(respBody))
 	}
 
 	return nil
 }
 
-func findOrCreateAuthCategory(client *http.Client, apiURL, projectID, authHeader string) (string, error) {
+func findOrCreateAuthCategory(apiURL, projectID string, headers map[string]string) (string, error) {
 	// GET existing categories
 	listURL := fmt.Sprintf("%s/api/projects/%s/user-data/all", apiURL, projectID)
-	req, err := http.NewRequest("GET", listURL, nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Authorization", authHeader)
-
-	resp, err := client.Do(req)
+	status, body, err := httpx.DoJSON(context.Background(), "GET", listURL, nil, headers, 30*time.Second)
 	if err != nil {
 		return "", fmt.Errorf("list categories: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("list categories failed: %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
-	if err != nil {
-		return "", err
+	if status != http.StatusOK {
+		return "", fmt.Errorf("list categories failed: %d", status)
 	}
 
 	var response struct {
@@ -313,28 +286,13 @@ func findOrCreateAuthCategory(client *http.Client, apiURL, projectID, authHeader
 
 	// Create it
 	createURL := fmt.Sprintf("%s/api/projects/%s/user-data/categories", apiURL, projectID)
-	createPayload, _ := json.Marshal(map[string]string{"name": "Authentication"})
-	createReq, err := http.NewRequest("POST", createURL, bytes.NewReader(createPayload))
-	if err != nil {
-		return "", err
-	}
-	createReq.Header.Set("Content-Type", "application/json")
-	createReq.Header.Set("Authorization", authHeader)
-
-	createResp, err := client.Do(createReq)
+	createStatus, createBody, err := httpx.DoJSON(context.Background(), "POST", createURL,
+		map[string]string{"name": "Authentication"}, headers, 30*time.Second)
 	if err != nil {
 		return "", fmt.Errorf("create category: %w", err)
 	}
-	defer createResp.Body.Close()
-
-	if createResp.StatusCode != http.StatusOK && createResp.StatusCode != http.StatusCreated {
-		respBody, _ := io.ReadAll(createResp.Body)
-		return "", fmt.Errorf("create category failed: %d - %s", createResp.StatusCode, string(respBody))
-	}
-
-	createBody, err := io.ReadAll(io.LimitReader(createResp.Body, 1024*1024))
-	if err != nil {
-		return "", err
+	if createStatus != http.StatusOK && createStatus != http.StatusCreated {
+		return "", fmt.Errorf("create category failed: %d - %s", createStatus, string(createBody))
 	}
 
 	var created struct {
