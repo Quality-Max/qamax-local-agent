@@ -418,7 +418,6 @@ func TestExecuteCrawlSession_Integration(t *testing.T) {
 		CloudURL: apiServer.URL,
 		AgentID:  "crawl-agent",
 		APIKey:   "crawl-key",
-		client:   &http.Client{Timeout: 30 * time.Second},
 	}
 
 	session := CrawlSession{
@@ -464,7 +463,6 @@ func TestExecuteCrawlSession_ContextCancelled(t *testing.T) {
 		CloudURL: apiServer.URL,
 		AgentID:  "cancel-agent",
 		APIKey:   "cancel-key",
-		client:   &http.Client{Timeout: 30 * time.Second},
 	}
 
 	session := CrawlSession{
@@ -516,7 +514,6 @@ func TestExecuteCrawlSession_SnapshotError(t *testing.T) {
 		CloudURL: apiServer.URL,
 		AgentID:  "snap-err-agent",
 		APIKey:   "snap-err-key",
-		client:   &http.Client{Timeout: 30 * time.Second},
 	}
 
 	session := CrawlSession{
@@ -572,7 +569,6 @@ func TestExecuteCrawlSession_ActionError(t *testing.T) {
 		CloudURL: apiServer.URL,
 		AgentID:  "action-err-agent",
 		APIKey:   "action-err-key",
-		client:   &http.Client{Timeout: 30 * time.Second},
 	}
 
 	session := CrawlSession{

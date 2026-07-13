@@ -8,7 +8,7 @@ import (
 
 func cmdToken(args []string) {
 	fs := flag.NewFlagSet("token", flag.ExitOnError)
-	_ = fs.Parse(args)
+	fs.Parse(args)
 
 	cfg, err := LoadConfig()
 	if err != nil || cfg.Token == "" {

@@ -1,14 +1,15 @@
 package main
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/Quality-Max/qmax-local-agent/httpx"
 )
 
 // SastVerifyResult represents the server verification response.
@@ -204,32 +205,27 @@ func cmdSastSetup(args []string) {
 
 	fmt.Printf("Generating %s pipeline config...\n", platform)
 
-	body, _ := json.Marshal(map[string]interface{}{
-		"platform":        platform,
-		"scan_on_pr":      true,
-		"scan_on_push":    false,
-		"fail_on_findings": true,
+	payload := map[string]interface{}{
+		"platform":           platform,
+		"scan_on_pr":         true,
+		"scan_on_push":       false,
+		"fail_on_findings":   true,
 		"severity_threshold": "medium",
-	})
+	}
+	headers := map[string]string{"Authorization": "Bearer " + cfg.APIKey}
 
-	req, _ := http.NewRequest("POST", cfg.GetAPIBaseURL()+"/api/sast/pipeline-config", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
+	_, respBody, err := httpx.DoJSON(context.Background(), "POST", cfg.GetAPIBaseURL()+"/api/sast/pipeline-config", payload, headers, 30*time.Second)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to generate config: %v\n", err)
 		os.Exit(1)
 	}
-	defer resp.Body.Close()
 
 	var result struct {
 		Filename     string `json:"filename"`
 		Content      string `json:"content"`
 		Instructions string `json:"instructions"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(respBody, &result); err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing response: %v\n", err)
 		os.Exit(1)
 	}
@@ -275,31 +271,23 @@ func checkTool(name, binary string, versionArgs ...string) ToolStatus {
 }
 
 func checkServerConnectivity(cfg *Config) bool {
-	client := &http.Client{Timeout: 10 * time.Second}
-	req, _ := http.NewRequest("GET", cfg.GetAPIBaseURL()+"/api/sast/verify/tools", nil)
-	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
-
-	resp, err := client.Do(req)
+	headers := map[string]string{"Authorization": "Bearer " + cfg.APIKey}
+	status, _, err := httpx.DoJSON(context.Background(), "GET", cfg.GetAPIBaseURL()+"/api/sast/verify/tools", nil, headers, 10*time.Second)
 	if err != nil {
 		return false
 	}
-	resp.Body.Close()
-	return resp.StatusCode == 200
+	return status == 200
 }
 
 func runServerVerification(cfg *Config) *SastVerifyResult {
-	client := &http.Client{Timeout: 60 * time.Second}
-	req, _ := http.NewRequest("POST", cfg.GetAPIBaseURL()+"/api/sast/verify", nil)
-	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
-
-	resp, err := client.Do(req)
+	headers := map[string]string{"Authorization": "Bearer " + cfg.APIKey}
+	_, body, err := httpx.DoJSON(context.Background(), "POST", cfg.GetAPIBaseURL()+"/api/sast/verify", nil, headers, 60*time.Second)
 	if err != nil {
 		return nil
 	}
-	defer resp.Body.Close()
 
 	var result SastVerifyResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(body, &result); err != nil {
 		return nil
 	}
 	return &result
@@ -352,26 +340,21 @@ func runAndCountFindings(binary string, args ...string) int {
 }
 
 func reportScanResults(cfg *Config, dir string, findings int) {
-	body, _ := json.Marshal(map[string]interface{}{
+	payload := map[string]interface{}{
 		"directory": dir,
 		"findings":  findings,
 		"agent_id":  cfg.AgentID,
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
-	})
+	}
+	headers := map[string]string{"Authorization": "Bearer " + cfg.APIKey}
 
-	req, _ := http.NewRequest("POST", cfg.GetAPIBaseURL()+"/api/sast/scan", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
+	_, respBody, err := httpx.DoJSON(context.Background(), "POST", cfg.GetAPIBaseURL()+"/api/sast/scan", payload, headers, 30*time.Second)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to report: %v\n", err)
 		return
 	}
-	defer resp.Body.Close()
 	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(respBody, &result); err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing server response: %v\n", err)
 		return
 	}

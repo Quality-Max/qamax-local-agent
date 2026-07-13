@@ -1,16 +1,17 @@
 package main
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Quality-Max/qmax-local-agent/httpx"
 )
 
 // qmax ci — headless CI runner for GitHub Actions / CI pipelines
@@ -140,14 +141,14 @@ func cmdCIRun(args []string) {
 		resolvedAPIURL = defaultAPIURL
 	}
 
-	client := &http.Client{Timeout: time.Duration(*timeout) * time.Second}
+	reqTimeout := time.Duration(*timeout) * time.Second
 
 	startTime := time.Now()
 
 	// Resolve script IDs
 	var scriptIDs []int
 	if *allScripts {
-		scriptIDs, err = ciFetchProjectScripts(client, resolvedAPIURL, resolvedToken, *projectID)
+		scriptIDs, err = ciFetchProjectScripts(reqTimeout, resolvedAPIURL, resolvedToken, *projectID)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error fetching project scripts: %v\n", err)
 			os.Exit(1)
@@ -168,7 +169,7 @@ func cmdCIRun(args []string) {
 	// Execute tests
 	fmt.Fprintf(os.Stderr, "Executing %d test(s)...\n", len(scriptIDs))
 
-	executionIDs, err := ciExecuteTests(client, resolvedAPIURL, resolvedToken, scriptIDs, *baseURL, *headless, *browser)
+	executionIDs, err := ciExecuteTests(reqTimeout, resolvedAPIURL, resolvedToken, scriptIDs, *baseURL, *headless, *browser)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error starting test executions: %v\n", err)
 		os.Exit(1)
@@ -176,7 +177,7 @@ func cmdCIRun(args []string) {
 
 	// Poll for results
 	deadline := time.Now().Add(time.Duration(*timeout) * time.Second)
-	results := ciPollAllExecutions(client, resolvedAPIURL, resolvedToken, executionIDs, deadline)
+	results := ciPollAllExecutions(reqTimeout, resolvedAPIURL, resolvedToken, executionIDs, deadline)
 
 	totalDuration := time.Since(startTime).Seconds()
 
@@ -200,9 +201,9 @@ func cmdCIRun(args []string) {
 }
 
 // ciFetchProjectScripts fetches all script IDs for a project.
-func ciFetchProjectScripts(client *http.Client, apiURL, token string, projectID int) ([]int, error) {
+func ciFetchProjectScripts(timeout time.Duration, apiURL, token string, projectID int) ([]int, error) {
 	url := fmt.Sprintf("%s/api/automation/scripts/project/%d?limit=500", apiURL, projectID)
-	body, err := ciAuthGet(client, url, token)
+	body, err := ciAuthGet(timeout, url, token)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +226,7 @@ func ciFetchProjectScripts(client *http.Client, apiURL, token string, projectID 
 }
 
 // ciExecuteTests starts execution for each script and returns execution IDs.
-func ciExecuteTests(client *http.Client, apiURL, token string, scriptIDs []int, baseURL string, headless bool, browser string) ([]ciExecution, error) {
+func ciExecuteTests(timeout time.Duration, apiURL, token string, scriptIDs []int, baseURL string, headless bool, browser string) ([]ciExecution, error) {
 	var executions []ciExecution
 
 	for _, sid := range scriptIDs {
@@ -239,7 +240,7 @@ func ciExecuteTests(client *http.Client, apiURL, token string, scriptIDs []int, 
 			payload["base_url"] = baseURL
 		}
 
-		body, err := ciAuthPost(client, url, token, payload)
+		body, err := ciAuthPost(timeout, url, token, payload)
 		if err != nil {
 			// Record as error but continue with other scripts
 			executions = append(executions, ciExecution{
@@ -288,7 +289,7 @@ type ciExecution struct {
 }
 
 // ciPollAllExecutions polls all executions until they complete or timeout.
-func ciPollAllExecutions(client *http.Client, apiURL, token string, executions []ciExecution, deadline time.Time) []ciTestResult {
+func ciPollAllExecutions(timeout time.Duration, apiURL, token string, executions []ciExecution, deadline time.Time) []ciTestResult {
 	results := make([]ciTestResult, len(executions))
 
 	// Initialize results for executions that already errored
@@ -317,7 +318,7 @@ func ciPollAllExecutions(client *http.Client, apiURL, token string, executions [
 
 			allDone = false
 
-			status, err := ciGetExecutionStatus(client, apiURL, token, exec.ExecutionID)
+			status, err := ciGetExecutionStatus(timeout, apiURL, token, exec.ExecutionID)
 			if err != nil {
 				// Transient error, keep polling
 				continue
@@ -367,14 +368,14 @@ func ciPollAllExecutions(client *http.Client, apiURL, token string, executions [
 }
 
 type ciExecutionStatus struct {
-	Status       string  `json:"status"`
-	Progress     int     `json:"progress"`
-	Success      bool    `json:"success"`
-	Duration     float64 `json:"execution_time"`
-	ScriptName   string  `json:"script_name"`
-	ErrorMessage string  `json:"error_message"`
+	Status       string   `json:"status"`
+	Progress     int      `json:"progress"`
+	Success      bool     `json:"success"`
+	Duration     float64  `json:"execution_time"`
+	ScriptName   string   `json:"script_name"`
+	ErrorMessage string   `json:"error_message"`
 	Errors       []string `json:"errors"`
-	TestErrors   string  `json:"test_errors"`
+	TestErrors   string   `json:"test_errors"`
 }
 
 func (s *ciExecutionStatus) isTerminal() bool {
@@ -397,9 +398,9 @@ func (s *ciExecutionStatus) resultStatus() string {
 }
 
 // ciGetExecutionStatus fetches the current status of an execution.
-func ciGetExecutionStatus(client *http.Client, apiURL, token, executionID string) (*ciExecutionStatus, error) {
+func ciGetExecutionStatus(timeout time.Duration, apiURL, token, executionID string) (*ciExecutionStatus, error) {
 	url := fmt.Sprintf("%s/api/playwright-execution/status/%s", apiURL, executionID)
-	body, err := ciAuthGet(client, url, token)
+	body, err := ciAuthGet(timeout, url, token)
 	if err != nil {
 		return nil, err
 	}
@@ -624,59 +625,27 @@ func ciWriteGitHubOutputs(results []ciTestResult, projectID int, totalDuration f
 
 // --- HTTP helpers for CI ---
 
-func ciAuthGet(client *http.Client, url, token string) ([]byte, error) {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := client.Do(req)
+func ciAuthGet(timeout time.Duration, url, token string) ([]byte, error) {
+	headers := map[string]string{"Authorization": "Bearer " + token}
+	status, body, err := httpx.DoJSON(context.Background(), "GET", url, nil, headers, timeout)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, ciMaxBody))
-	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d: %s", status, string(body))
 	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
-	}
-
 	return body, nil
 }
 
-func ciAuthPost(client *http.Client, url, token string, payload interface{}) ([]byte, error) {
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("marshal request: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", url, bytes.NewReader(data))
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
+func ciAuthPost(timeout time.Duration, url, token string, payload interface{}) ([]byte, error) {
+	headers := map[string]string{"Authorization": "Bearer " + token}
+	status, body, err := httpx.DoJSON(context.Background(), "POST", url, payload, headers, timeout)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, ciMaxBody))
-	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d: %s", status, string(body))
 	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
-	}
-
 	return body, nil
 }
 

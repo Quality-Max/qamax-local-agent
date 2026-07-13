@@ -165,8 +165,7 @@ func TestFindOrCreateAuthCategory_ListFails(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := server.Client()
-	_, err := findOrCreateAuthCategory(client, server.URL, "proj-1", "Bearer token")
+	_, err := findOrCreateAuthCategory(server.URL, "proj-1", map[string]string{"Authorization": "Bearer token"})
 	if err == nil {
 		t.Error("expected error when list categories fails")
 	}
@@ -183,8 +182,7 @@ func TestFindOrCreateAuthCategory_ExistingCategory(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := server.Client()
-	id, err := findOrCreateAuthCategory(client, server.URL, "proj-1", "Bearer token")
+	id, err := findOrCreateAuthCategory(server.URL, "proj-1", map[string]string{"Authorization": "Bearer token"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -320,8 +318,7 @@ func TestFindOrCreateAuthCategory_EmptyList(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := server.Client()
-	id, err := findOrCreateAuthCategory(client, server.URL, "proj-1", "Bearer token")
+	id, err := findOrCreateAuthCategory(server.URL, "proj-1", map[string]string{"Authorization": "Bearer token"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -347,8 +344,7 @@ func TestFindOrCreateAuthCategory_CreateFails(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := server.Client()
-	_, err := findOrCreateAuthCategory(client, server.URL, "proj-1", "Bearer token")
+	_, err := findOrCreateAuthCategory(server.URL, "proj-1", map[string]string{"Authorization": "Bearer token"})
 	if err == nil {
 		t.Error("expected error when category creation fails")
 	}

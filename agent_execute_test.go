@@ -297,7 +297,7 @@ func TestReportResult_WithFullResultData(t *testing.T) {
 		"errors":    "some error text",
 		"artifacts": map[string]interface{}{"screenshots": []string{}},
 	}
-	a.reportResult("assign-full-data", true, "passed", resultData)
+	a.reportResult(context.Background(), "assign-full-data", true, "passed", resultData)
 
 	if receivedPayload["output"] != "test output text" {
 		t.Errorf("output: got %v", receivedPayload["output"])
@@ -320,7 +320,7 @@ func TestReportResult_ServerRejectsFully(t *testing.T) {
 
 	a := newTestAgent(server.URL)
 	// Should not panic when server rejects result
-	a.reportResult("assign-reject-full", true, "ok", nil)
+	a.reportResult(context.Background(), "assign-reject-full", true, "ok", nil)
 }
 
 // --- updateAssignmentStatus edge ---
@@ -332,19 +332,19 @@ func TestUpdateAssignmentStatus_ServerReturnsError(t *testing.T) {
 	defer server.Close()
 
 	a := newTestAgent(server.URL)
-	a.updateAssignmentStatus("assign-srv-err", "started")
+	a.updateAssignmentStatus(context.Background(), "assign-srv-err", "started")
 }
 
 func TestUpdateAssignmentStatus_Unreachable(t *testing.T) {
 	a := newTestAgent("http://127.0.0.1:1")
-	a.updateAssignmentStatus("assign-unreach", "started")
+	a.updateAssignmentStatus(context.Background(), "assign-unreach", "started")
 }
 
 // --- Register additional ---
 
 func TestRegister_ConnectionRefused(t *testing.T) {
 	a := NewAgent("http://127.0.0.1:1", "", "", "", 5*time.Second, 60*time.Second)
-	err := a.Register()
+	err := a.Register(context.Background())
 	if err == nil {
 		t.Error("expected error for connection failure")
 	}
@@ -358,7 +358,7 @@ func TestRegister_MalformedJSON(t *testing.T) {
 	defer server.Close()
 
 	a := NewAgent(server.URL, "", "", "", 5*time.Second, 60*time.Second)
-	err := a.Register()
+	err := a.Register(context.Background())
 	if err == nil {
 		t.Error("expected error for malformed JSON response")
 	}

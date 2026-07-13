@@ -1,16 +1,17 @@
 package main
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Quality-Max/qmax-local-agent/httpx"
 )
 
 func cmdTest(args []string) {
@@ -98,19 +99,19 @@ func cmdTestCases(args []string) {
 	}
 
 	var resp struct {
-		Success   bool   `json:"success"`
-		Count     int    `json:"count"`
-		Project   struct {
+		Success bool `json:"success"`
+		Count   int  `json:"count"`
+		Project struct {
 			ID   json.Number `json:"id"`
 			Name string      `json:"name"`
 		} `json:"project"`
 		TestCases []struct {
-			ID       json.Number `json:"id"`
-			Title    string      `json:"title"`
-			Category string      `json:"category"`
-			Priority int         `json:"priority"`
-			Status   string      `json:"status"`
-			Automated bool       `json:"automated"`
+			ID        json.Number `json:"id"`
+			Title     string      `json:"title"`
+			Category  string      `json:"category"`
+			Priority  int         `json:"priority"`
+			Status    string      `json:"status"`
+			Automated bool        `json:"automated"`
 		} `json:"test_cases"`
 	}
 	mustUnmarshal(body, &resp)
@@ -257,10 +258,10 @@ func cmdTestRun(args []string) {
 
 	// Single script execution via playwright-execution endpoint
 	payload := map[string]interface{}{
-		"headless":       *headless,
-		"browser":        *browser,
-		"record_video":   true,
-		"viewport_width": 1280,
+		"headless":        *headless,
+		"browser":         *browser,
+		"record_video":    true,
+		"viewport_width":  1280,
 		"viewport_height": 720,
 	}
 	if *baseURL != "" {
@@ -454,71 +455,30 @@ func mustLoadConfig() *Config {
 }
 
 func authGet(cfg *Config, url string) []byte {
-	client := &http.Client{Timeout: 30 * time.Second}
-	req, err := http.NewRequest("GET", url, nil)
+	headers := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", cfg.Token)}
+	status, body, err := httpx.DoJSON(context.Background(), "GET", url, nil, headers, 30*time.Second)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", cfg.Token))
-
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	if status != http.StatusOK {
+		fmt.Fprintf(os.Stderr, "Error: %d - %s\n", status, string(body))
 		os.Exit(1)
 	}
-	defer resp.Body.Close()
-
-	const maxBody = 10 * 1024 * 1024
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading response: %v\n", err)
-		os.Exit(1)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		fmt.Fprintf(os.Stderr, "Error: %d - %s\n", resp.StatusCode, string(body))
-		os.Exit(1)
-	}
-
 	return body
 }
 
 func authPost(cfg *Config, url string, payload interface{}) []byte {
-	data, err := json.Marshal(payload)
+	headers := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", cfg.Token)}
+	status, body, err := httpx.DoJSON(context.Background(), "POST", url, payload, headers, 60*time.Second)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-
-	client := &http.Client{Timeout: 60 * time.Second}
-	req, err := http.NewRequest("POST", url, bytes.NewReader(data))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	if status != http.StatusOK && status != http.StatusCreated {
+		fmt.Fprintf(os.Stderr, "Error: %d - %s\n", status, string(body))
 		os.Exit(1)
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", cfg.Token))
-
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	defer resp.Body.Close()
-
-	const maxBody = 10 * 1024 * 1024
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading response: %v\n", err)
-		os.Exit(1)
-	}
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		fmt.Fprintf(os.Stderr, "Error: %d - %s\n", resp.StatusCode, string(body))
-		os.Exit(1)
-	}
-
 	return body
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -16,7 +17,6 @@ func newTestAgent(serverURL string) *Agent {
 		CloudURL: serverURL,
 		APIKey:   "test-api-key-abc123",
 		AgentID:  "test-agent-id-xyz",
-		client:   &http.Client{Timeout: 5 * time.Second},
 	}
 }
 
@@ -30,7 +30,7 @@ func TestPollCrawlSessions_NoPending(t *testing.T) {
 	defer server.Close()
 
 	agent := newTestAgent(server.URL)
-	session, err := agent.PollCrawlSessions()
+	session, err := agent.PollCrawlSessions(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestPollCrawlSessions_HasSession(t *testing.T) {
 	defer server.Close()
 
 	agent := newTestAgent(server.URL)
-	session, err := agent.PollCrawlSessions()
+	session, err := agent.PollCrawlSessions(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestPollCrawlSessions_AuthRequired(t *testing.T) {
 	defer server.Close()
 
 	agent := newTestAgent(server.URL)
-	_, err := agent.PollCrawlSessions()
+	_, err := agent.PollCrawlSessions(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestPollCrawlSessions_ServerError(t *testing.T) {
 	defer server.Close()
 
 	agent := newTestAgent(server.URL)
-	_, err := agent.PollCrawlSessions()
+	_, err := agent.PollCrawlSessions(context.Background())
 	if err == nil {
 		t.Fatal("expected error for 500 response, got nil")
 	}
@@ -118,9 +118,8 @@ func TestPollCrawlSessions_EmptyAgentID(t *testing.T) {
 		CloudURL: "http://localhost",
 		APIKey:   "key",
 		AgentID:  "",
-		client:   &http.Client{Timeout: 5 * time.Second},
 	}
-	session, err := agent.PollCrawlSessions()
+	session, err := agent.PollCrawlSessions(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -134,9 +133,8 @@ func TestPollCrawlSessions_EmptyAPIKey(t *testing.T) {
 		CloudURL: "http://localhost",
 		APIKey:   "",
 		AgentID:  "agent-1",
-		client:   &http.Client{Timeout: 5 * time.Second},
 	}
-	session, err := agent.PollCrawlSessions()
+	session, err := agent.PollCrawlSessions(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -152,7 +150,7 @@ func TestPollCrawlSessions_NoContent(t *testing.T) {
 	defer server.Close()
 
 	agent := newTestAgent(server.URL)
-	session, err := agent.PollCrawlSessions()
+	session, err := agent.PollCrawlSessions(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -168,7 +166,7 @@ func TestPollCrawlSessions_NotFound(t *testing.T) {
 	defer server.Close()
 
 	agent := newTestAgent(server.URL)
-	session, err := agent.PollCrawlSessions()
+	session, err := agent.PollCrawlSessions(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -188,7 +186,7 @@ func TestPollCrawlSessions_URLPath(t *testing.T) {
 
 	agent := newTestAgent(server.URL)
 	agent.AgentID = "my-agent-42"
-	_, _ = agent.PollCrawlSessions()
+	_, _ = agent.PollCrawlSessions(context.Background())
 
 	expected := "/api/agent/my-agent-42/crawl/pending"
 	if receivedPath != expected {
@@ -236,7 +234,7 @@ func TestSubmitSnapshot_Success(t *testing.T) {
 		ScreenshotBase64: "aGVsbG8=",
 	}
 
-	action, err := agent.submitSnapshot("sess-abc", snapshot)
+	action, err := agent.submitSnapshot(context.Background(), "sess-abc", snapshot)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -268,7 +266,7 @@ func TestSubmitSnapshot_DoneAction(t *testing.T) {
 		StepNum:   5,
 	}
 
-	action, err := agent.submitSnapshot("sess-done", snapshot)
+	action, err := agent.submitSnapshot(context.Background(), "sess-done", snapshot)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -295,7 +293,7 @@ func TestSubmitSnapshot_ServerError(t *testing.T) {
 		StepNum:   1,
 	}
 
-	_, err := agent.submitSnapshot("sess-err", snapshot)
+	_, err := agent.submitSnapshot(context.Background(), "sess-err", snapshot)
 	if err == nil {
 		t.Fatal("expected error for 500 response, got nil")
 	}
@@ -320,7 +318,7 @@ func TestSubmitSnapshot_URLPath(t *testing.T) {
 	agent.AgentID = "agent-99"
 	snapshot := &CrawlSnapshot{SessionID: "sess-path", StepNum: 1}
 
-	_, _ = agent.submitSnapshot("sess-path", snapshot)
+	_, _ = agent.submitSnapshot(context.Background(), "sess-path", snapshot)
 
 	expected := "/api/agent/agent-99/crawl/sess-path/snapshot"
 	if receivedPath != expected {
@@ -343,7 +341,7 @@ func TestSubmitCrawlError_Success(t *testing.T) {
 	defer server.Close()
 
 	agent := newTestAgent(server.URL)
-	agent.submitCrawlError("sess-fail", "navigation timeout")
+	agent.submitCrawlError(context.Background(), "sess-fail", "navigation timeout")
 
 	expectedPath := fmt.Sprintf("/api/agent/%s/crawl/sess-fail/error", agent.AgentID)
 	if receivedPath != expectedPath {
@@ -371,12 +369,12 @@ func TestDoJSONWithRetry_RetriesOn500(t *testing.T) {
 	defer server.Close()
 
 	agent := newTestAgent(server.URL)
-	resp, body, err := agent.doJSONWithRetry("GET", server.URL+"/test", nil, nil, 5*time.Second)
+	status, body, err := agent.doJSONWithRetry(context.Background(), "GET", server.URL+"/test", nil, nil, 5*time.Second)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("expected 200, got %d", resp.StatusCode)
+	if status != http.StatusOK {
+		t.Errorf("expected 200, got %d", status)
 	}
 	if string(body) != `{"ok": true}` {
 		t.Errorf("unexpected body: %s", string(body))
@@ -408,12 +406,12 @@ func TestDoJSONWithRetry_NoRetryOn4xx(t *testing.T) {
 			defer server.Close()
 
 			agent := newTestAgent(server.URL)
-			resp, _, err := agent.doJSONWithRetry("GET", server.URL+"/test", nil, nil, 5*time.Second)
+			status, _, err := agent.doJSONWithRetry(context.Background(), "GET", server.URL+"/test", nil, nil, 5*time.Second)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if resp.StatusCode != tt.statusCode {
-				t.Errorf("expected %d, got %d", tt.statusCode, resp.StatusCode)
+			if status != tt.statusCode {
+				t.Errorf("expected %d, got %d", tt.statusCode, status)
 			}
 			if got := atomic.LoadInt32(&attempts); got != 1 {
 				t.Errorf("expected 1 attempt (no retry), got %d", got)
@@ -432,7 +430,7 @@ func TestDoJSONWithRetry_AllRetriesExhausted(t *testing.T) {
 	defer server.Close()
 
 	agent := newTestAgent(server.URL)
-	_, _, err := agent.doJSONWithRetry("GET", server.URL+"/test", nil, nil, 5*time.Second)
+	_, _, err := agent.doJSONWithRetry(context.Background(), "GET", server.URL+"/test", nil, nil, 5*time.Second)
 	if err == nil {
 		t.Fatal("expected error when all retries exhausted")
 	}
@@ -454,7 +452,7 @@ func TestDoJSONWithRetry_SendsHeaders(t *testing.T) {
 		"X-Agent-API-Key": "my-key",
 		"X-Custom":        "value",
 	}
-	_, _, err := agent.doJSONWithRetry("GET", server.URL+"/test", nil, headers, 5*time.Second)
+	_, _, err := agent.doJSONWithRetry(context.Background(), "GET", server.URL+"/test", nil, headers, 5*time.Second)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -478,7 +476,7 @@ func TestDoJSONWithRetry_SendsJSONBody(t *testing.T) {
 
 	agent := newTestAgent(server.URL)
 	payload := map[string]string{"key": "value"}
-	_, _, err := agent.doJSONWithRetry("POST", server.URL+"/test", payload, nil, 5*time.Second)
+	_, _, err := agent.doJSONWithRetry(context.Background(), "POST", server.URL+"/test", payload, nil, 5*time.Second)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -753,7 +751,7 @@ func TestPollAndSubmitFlow(t *testing.T) {
 	agent := newTestAgent(server.URL)
 
 	// Poll for session
-	session, err := agent.PollCrawlSessions()
+	session, err := agent.PollCrawlSessions(context.Background())
 	if err != nil {
 		t.Fatalf("poll failed: %v", err)
 	}
@@ -772,7 +770,7 @@ func TestPollAndSubmitFlow(t *testing.T) {
 			URL:       "https://example.com",
 			Title:     "Example",
 		}
-		action, err := agent.submitSnapshot(session.SessionID, snapshot)
+		action, err := agent.submitSnapshot(context.Background(), session.SessionID, snapshot)
 		if err != nil {
 			t.Fatalf("submit snapshot %d failed: %v", i, err)
 		}

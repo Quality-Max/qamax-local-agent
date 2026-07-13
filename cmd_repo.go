@@ -166,7 +166,7 @@ func cmdRepoCoverage(args []string) {
 	cfg := mustLoadConfig()
 	apiURL := cfg.GetAPIBaseURL()
 
-	body := authGet(cfg, fmt.Sprintf("%s/api/repositories/%d/coverage", apiURL, *repoID))
+	body := authGet(cfg, fmt.Sprintf("%s/api/repositories/%d", apiURL, *repoID))
 
 	if *jsonOut {
 		fmt.Println(string(body))
@@ -174,22 +174,26 @@ func cmdRepoCoverage(args []string) {
 	}
 
 	var resp struct {
-		Success   bool        `json:"success"`
-		Coverage  interface{} `json:"coverage"`
-		ScannedAt string      `json:"scanned_at"`
+		Success    bool `json:"success"`
+		Repository struct {
+			Analysis struct {
+				Coverage  interface{} `json:"coverage"`
+				ScannedAt string      `json:"scanned_at"`
+			} `json:"analysis"`
+		} `json:"repository"`
 	}
 	mustUnmarshal(body, &resp)
 
-	if resp.Coverage == nil {
+	if resp.Repository.Analysis.Coverage == nil {
 		fmt.Println("No coverage data available.")
 		fmt.Println("Run a repository analysis first to generate coverage data.")
 		return
 	}
 
-	fmt.Printf("Coverage data (scanned: %s)\n\n", resp.ScannedAt)
+	fmt.Printf("Coverage data (scanned: %s)\n\n", resp.Repository.Analysis.ScannedAt)
 
 	// Pretty-print coverage data
-	coverageJSON, _ := json.MarshalIndent(resp.Coverage, "", "  ")
+	coverageJSON, _ := json.MarshalIndent(resp.Repository.Analysis.Coverage, "", "  ")
 	fmt.Println(string(coverageJSON))
 }
 
@@ -209,7 +213,7 @@ func cmdRepoQuality(args []string) {
 	cfg := mustLoadConfig()
 	apiURL := cfg.GetAPIBaseURL()
 
-	body := authGet(cfg, fmt.Sprintf("%s/api/repositories/%d/quality", apiURL, *repoID))
+	body := authGet(cfg, fmt.Sprintf("%s/api/repositories/%d", apiURL, *repoID))
 
 	if *jsonOut {
 		fmt.Println(string(body))
@@ -217,21 +221,25 @@ func cmdRepoQuality(args []string) {
 	}
 
 	var resp struct {
-		Success   bool        `json:"success"`
-		Quality   interface{} `json:"quality"`
-		ScannedAt string      `json:"scanned_at"`
+		Success    bool `json:"success"`
+		Repository struct {
+			Analysis struct {
+				Quality   interface{} `json:"quality"`
+				ScannedAt string      `json:"scanned_at"`
+			} `json:"analysis"`
+		} `json:"repository"`
 	}
 	mustUnmarshal(body, &resp)
 
-	if resp.Quality == nil {
+	if resp.Repository.Analysis.Quality == nil {
 		fmt.Println("No quality data available.")
 		fmt.Println("Run a repository analysis first to generate quality data.")
 		return
 	}
 
-	fmt.Printf("Quality signal (scanned: %s)\n\n", resp.ScannedAt)
+	fmt.Printf("Quality signal (scanned: %s)\n\n", resp.Repository.Analysis.ScannedAt)
 
-	qualityJSON, _ := json.MarshalIndent(resp.Quality, "", "  ")
+	qualityJSON, _ := json.MarshalIndent(resp.Repository.Analysis.Quality, "", "  ")
 	fmt.Println(string(qualityJSON))
 }
 

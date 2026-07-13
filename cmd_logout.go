@@ -8,7 +8,7 @@ import (
 
 func cmdLogout(args []string) {
 	fs := flag.NewFlagSet("logout", flag.ExitOnError)
-	_ = fs.Parse(args)
+	fs.Parse(args)
 
 	path, err := ConfigPath()
 	if err != nil {
