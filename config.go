@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Config represents the persistent configuration stored in ~/.qamax/config.json.
+// Config represents the persistent configuration stored in ~/.qmax/config.json.
 type Config struct {
 	Token              string `json:"token,omitempty"`
 	APIURL             string `json:"api_url,omitempty"`
@@ -18,7 +18,7 @@ type Config struct {
 }
 
 const (
-	configDirName  = ".qamax"
+	configDirName  = ".qmax"
 	configFileName = "config.json"
 )
 
@@ -40,7 +40,7 @@ func ConfigDir() (string, error) {
 	return filepath.Join(home, configDirName), nil
 }
 
-// LoadConfig reads the config from ~/.qamax/config.json.
+// LoadConfig reads the config from ~/.qmax/config.json.
 // Returns a zero Config (no error) if the file does not exist.
 func LoadConfig() (*Config, error) {
 	path, err := ConfigPath()
@@ -63,7 +63,7 @@ func LoadConfig() (*Config, error) {
 	return &cfg, nil
 }
 
-// Save writes the config to ~/.qamax/config.json with secure permissions.
+// Save writes the config to ~/.qmax/config.json with secure permissions.
 func (c *Config) Save() error {
 	dir, err := ConfigDir()
 	if err != nil {

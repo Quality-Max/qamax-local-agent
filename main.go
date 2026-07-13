@@ -5,11 +5,19 @@ import (
 	"os"
 	"strings"
 
-	receipt "github.com/Quality-Max/qmax-receipt"
 	"github.com/Quality-Max/qmax-local-agent/policy"
+	receipt "github.com/Quality-Max/qmax-receipt"
 )
 
 func main() {
+	// Unify state under ~/.qmax (migrating any legacy ~/.qamax) before anything
+	// reads config or writes a receipt, so existing logins + the agent signing
+	// identity survive the rename.
+	migrateLegacyStateDir()
+	if dir, err := ConfigDir(); err == nil {
+		receipt.BaseDir = dir // ~/.qmax — receipts + signing key live alongside config
+	}
+
 	// Stamp the agent version into every Exposure Receipt and apply egress config.
 	receipt.AgentVersion = Version
 	configureEgressFromEnv()
