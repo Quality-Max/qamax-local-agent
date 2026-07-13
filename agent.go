@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	Version   = "4.0.0"
+	Version   = "4.5.0"
 	AgentName = "QualityMax Local Agent"
 )
 

@@ -1,5 +1,5 @@
 BINARY_NAME = qmax
-VERSION = 4.0.0
+VERSION = 4.5.0
 BUILD_DIR = build
 
 # Stamp the reproducible build SHA into the receipt module so every Exposure
